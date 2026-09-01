@@ -48,16 +48,27 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `question ${id} is not allowed by this endpoint` });
   }
 
+  // report_month / report_year are passed through exactly as typed, so the
+  // question's own parsing rules apply — 'august', 'Aug', '2026-08', '8'.
+  // month / year (numeric) are still accepted for older callers.
+  const rawMonth = (req.query.report_month ?? '').toString().trim();
+  const rawYear = (req.query.report_year ?? '').toString().trim();
   const month = parseInt(req.query.month, 10);
   const year = parseInt(req.query.year, 10);
-  const wantMonth = month >= 1 && month <= 12 && year >= 2000 && year <= 2100
-    ? `${year}-${String(month).padStart(2, '0')}`
-    : null;
 
-  // template tag name -> value to send
   const values = {};
-  if (wantMonth) values.report_month = wantMonth; // '2026-08' carries its own year
-  if (year >= 2000 && year <= 2100) values.report_year = year;
+  if (rawMonth) values.report_month = rawMonth;
+  else if (month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
+    values.report_month = `${year}-${String(month).padStart(2, '0')}`;
+  }
+  if (rawYear) values.report_year = /^\d+$/.test(rawYear) ? Number(rawYear) : rawYear;
+  else if (year >= 2000 && year <= 2100) values.report_year = year;
+
+  // Only used to decide whether the /api/dataset fallback is needed; an
+  // unparseable month (a bare name, say) simply skips that check.
+  const wantMonth = /^\d{4}-\d{2}$/.test(values.report_month || '')
+    ? values.report_month
+    : null;
 
   const headers = { 'x-api-key': key, 'Content-Type': 'application/json' };
 
@@ -90,6 +101,7 @@ export default async function handler(req, res) {
     if (req.query.debug) {
       return res.status(200).json({
         question: id,
+        values_sent: values,
         requested_period: wantMonth,
         template_tags: Object.entries(tags).map(([n, t]) => ({ name: n, id: t.id, type: t.type })),
         parameters_sent: parameters,
