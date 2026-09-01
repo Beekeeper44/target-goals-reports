@@ -15,6 +15,9 @@
 // If the card still comes back for the wrong period, the run is repeated
 // through /api/dataset with the same native query and parameters.
 
+// Snowflake can take a while; the default function timeout is far too short.
+export const config = { maxDuration: 120 };
+
 const ALLOWED_QUESTIONS = [30328];
 const DEFAULT_QUESTION = 30328;
 

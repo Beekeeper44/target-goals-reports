@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/metabase.js": { "maxDuration": 120 }
+  },
   "headers": [
     {
       "source": "/api/(.*)",
