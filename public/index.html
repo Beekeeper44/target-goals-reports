@@ -321,6 +321,7 @@ async function loadFromMetabase(){
     if(token!==fetchToken) return;
     if(!res.ok) throw new Error(String(body.error||('server returned '+res.status)));
     const raw=Array.isArray(body)?body:(body.rows||body.data||[]);
+    if(body&&body.warning) banner(String(body.warning));
     if(!raw.length) throw new Error('The question ran but returned zero rows.');
     const rows=normalize(raw);
     if(!rows.length){
@@ -330,7 +331,7 @@ async function loadFromMetabase(){
     const want=`${state.year}-${String(state.month).padStart(2,'0')}`;
     const got=rows.find(r=>r.report_month)?.report_month;
     if(got&&!String(got).startsWith(want)){
-      banner(`The question returned <code>${got}</code>, not <code>${want}</code>. Its <code>report_month</code> / <code>report_year</code> variables did not take the filter values, so these numbers are for a different period.`);
+      banner(`The question returned <code>${got}</code>, not <code>${want}</code> — the filter values did not bind. Open <code>/api/metabase?id=${QUESTION_ID}&month=${state.month}&year=${state.year}&debug=1</code> to see the template tags the card declares and the parameters being sent.`);
     }
   }catch(e){
     if(token!==fetchToken) return;
