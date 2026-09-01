@@ -1,22 +1,20 @@
-// GET /api/metabase?id=30328&month=8&year=2026[&debug=1]
+// GET /api/metabase?id=30328&report_month=august&report_year=2026[&debug=1]
 //
 // Runs a saved Metabase question server-side so the API key never reaches the
 // browser. Required environment variables:
 //   METABASE_HOST     https://arena-club.metabaseapp.com
 //   METABASE_API_KEY  mb_...
 //
-// Question 30328 declares {{report_month}} (Text) and {{report_year}} (Number)
-// inside optional [[ ]] blocks. Two things matter:
-//   1. Metabase binds parameters by the template tag's `id`, not its name, so
-//      the card is read first and the real ids are used.
-//   2. report_month is sent as 'YYYY-MM' — per the question's own precedence
-//      rules a full year-month carries its own year, so the month cannot be
-//      resolved against the wrong year.
-// If the card still comes back for the wrong period, the run is repeated
-// through /api/dataset with the same native query and parameters.
+// Question 30328 declares {{report_month}} and {{report_year}} (both Text)
+// inside optional [[ ]] blocks. Metabase matches a parameter by the template
+// tag's `id`, so the card is read first — the id lives in different places
+// depending on version, hence the several lookups in findMeta(). If none of
+// them turn it up the parameters are still sent by target alone, and the run
+// is repeated through /api/dataset if the wrong period comes back.
 
-// Snowflake can take a while; the default function timeout is far too short.
-export const config = { maxDuration: 120 };
+// Snowflake can take a while; the default 10s function timeout is too short.
+// 60 is the maximum on the Hobby plan — a higher value fails the build.
+export const config = { maxDuration: 60 };
 
 const ALLOWED_QUESTIONS = [30328];
 const DEFAULT_QUESTION = 30328;
@@ -28,7 +26,7 @@ const paramType = (tagType) => {
 };
 
 const periodOf = (rows) => {
-  for (const r of rows) {
+  for (const r of rows || []) {
     for (const k of Object.keys(r)) {
       if (k.toLowerCase() === 'report_month' && r[k]) return String(r[k]);
     }
@@ -51,9 +49,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `question ${id} is not allowed by this endpoint` });
   }
 
-  // report_month / report_year are passed through exactly as typed, so the
-  // question's own parsing rules apply — 'august', 'Aug', '2026-08', '8'.
-  // month / year (numeric) are still accepted for older callers.
+  // Values are passed through exactly as typed so the question's own parsing
+  // rules apply: 'august', 'Aug', '2026-08', '2026-08-15', '8'.
   const rawMonth = (req.query.report_month ?? '').toString().trim();
   const rawYear = (req.query.report_year ?? '').toString().trim();
   const month = parseInt(req.query.month, 10);
@@ -64,55 +61,87 @@ export default async function handler(req, res) {
   else if (month >= 1 && month <= 12 && year >= 2000 && year <= 2100) {
     values.report_month = `${year}-${String(month).padStart(2, '0')}`;
   }
-  if (rawYear) values.report_year = /^\d+$/.test(rawYear) ? Number(rawYear) : rawYear;
-  else if (year >= 2000 && year <= 2100) values.report_year = year;
+  if (rawYear) values.report_year = rawYear;
+  else if (year >= 2000 && year <= 2100) values.report_year = String(year);
 
-  // Only used to decide whether the /api/dataset fallback is needed; an
-  // unparseable month (a bare name, say) simply skips that check.
-  const wantMonth = /^\d{4}-\d{2}$/.test(values.report_month || '')
-    ? values.report_month
-    : null;
+  // Only used to decide whether the fallback run is needed. A bare month name
+  // has no unambiguous expected period, so that check is skipped.
+  const wantMonth = /^\d{4}-\d{2}$/.test(values.report_month || '') ? values.report_month : null;
 
   const headers = { 'x-api-key': key, 'Content-Type': 'application/json' };
 
   try {
-    // 1. Read the card: template tag ids, the native query, and the database id.
+    // 1. Read the card. Template tag metadata lives in different shapes across
+    //    Metabase versions, so gather every source before giving up on an id.
+    let card = null;
     const cardRes = await fetch(`${host}/api/card/${id}`, { headers });
-    if (!cardRes.ok) {
-      const t = await cardRes.text();
-      return res.status(cardRes.status).json({ error: `could not read card ${id}: ${t.slice(0, 200)}` });
+    if (cardRes.ok) {
+      card = await cardRes.json();
     }
-    const card = await cardRes.json();
+
     const native = card?.dataset_query?.native || {};
-    const tags = native['template-tags'] || {};
+    const tags = native['template-tags'] || native.template_tags || {};
+    const cardParams = Array.isArray(card?.parameters) ? card.parameters : [];
+
+    const findMeta = (name) => {
+      const t = tags[name];
+      if (t && t.id) return { id: t.id, type: paramType(t.type), from: 'template-tags' };
+
+      const p = cardParams.find((p) => {
+        if (p.slug === name || p.name === name) return true;
+        const tgt = p.target;
+        return Array.isArray(tgt) && Array.isArray(tgt[1]) && tgt[1][1] === name;
+      });
+      if (p && p.id) return { id: p.id, type: p.type || 'category', from: 'card.parameters' };
+
+      return null;
+    };
 
     const parameters = [];
-    const skipped = [];
+    const unresolved = [];
     for (const [name, value] of Object.entries(values)) {
-      const tag = tags[name];
-      if (!tag) { skipped.push(name); continue; }
-      parameters.push({
-        id: tag.id,
-        name,
-        slug: name,
-        type: paramType(tag.type),
-        target: ['variable', ['template-tag', name]],
-        value
-      });
+      const meta = findMeta(name);
+      if (meta) {
+        parameters.push({
+          id: meta.id,
+          name,
+          slug: name,
+          type: meta.type,
+          target: ['variable', ['template-tag', name]],
+          value
+        });
+      } else {
+        // No id available — send by target alone rather than dropping the
+        // filter. Worst case Metabase ignores it and the fallback run below
+        // catches the wrong period.
+        unresolved.push(name);
+        parameters.push({
+          name,
+          slug: name,
+          type: 'category',
+          target: ['variable', ['template-tag', name]],
+          value
+        });
+      }
     }
 
     if (req.query.debug) {
       return res.status(200).json({
         question: id,
+        card_readable: !!card,
+        card_keys: card ? Object.keys(card).slice(0, 40) : [],
+        dataset_query_type: card?.dataset_query?.type ?? null,
+        has_native_query: !!native.query,
+        template_tag_names: Object.keys(tags),
+        card_parameters: cardParams.map((p) => ({ id: p.id, name: p.name, slug: p.slug, type: p.type })),
         values_sent: values,
-        requested_period: wantMonth,
-        template_tags: Object.entries(tags).map(([n, t]) => ({ name: n, id: t.id, type: t.type })),
         parameters_sent: parameters,
-        tags_not_found: skipped
+        unresolved_ids: unresolved,
+        requested_period: wantMonth
       });
     }
 
-    // 2. Run the saved card with the bound parameters.
+    // 2. Run the saved card.
     const r = await fetch(`${host}/api/card/${id}/query/json`, {
       method: 'POST',
       headers,
@@ -120,24 +149,20 @@ export default async function handler(req, res) {
     });
     const text = await r.text();
 
-    if (!r.ok) {
-      return res.status(r.status).json({ error: `metabase returned ${r.status}: ${text.slice(0, 300)}` });
+    let rows = null;
+    if (r.ok) {
+      try { rows = JSON.parse(text); } catch { rows = null; }
+      if (rows && rows.error) rows = null;
     }
+    if (!Array.isArray(rows)) rows = null;
 
-    let rows;
-    try {
-      rows = JSON.parse(text);
-    } catch {
-      return res.status(502).json({ error: 'metabase returned a non-JSON response' });
-    }
-    if (rows && rows.error) {
-      return res.status(502).json({ error: String(rows.error).slice(0, 300) });
-    }
-    if (!Array.isArray(rows)) rows = [];
+    // 3. Fall back to running the native query directly. This path always
+    //    honours parameters, so it covers both a rejected card run and a card
+    //    run that silently ignored the filters.
+    const needsFallback =
+      !rows || (wantMonth && rows.length && periodOf(rows) && periodOf(rows) !== wantMonth);
 
-    // 3. If the saved-card run ignored the parameters, run the same native
-    //    query directly through /api/dataset, which always honours them.
-    if (wantMonth && rows.length && periodOf(rows) && periodOf(rows) !== wantMonth) {
+    if (needsFallback && native.query && card?.database_id) {
       const ds = await fetch(`${host}/api/dataset`, {
         method: 'POST',
         headers,
@@ -150,7 +175,7 @@ export default async function handler(req, res) {
       });
       const dsText = await ds.text();
       if (ds.ok) {
-        let payload;
+        let payload = null;
         try { payload = JSON.parse(dsText); } catch { payload = null; }
         const cols = payload?.data?.cols;
         const dataRows = payload?.data?.rows;
@@ -160,18 +185,24 @@ export default async function handler(req, res) {
             cols.forEach((c, i) => { o[c.name] = row[i]; });
             return o;
           });
-          if (mapped.length && periodOf(mapped) === wantMonth) {
-            return res.status(200).json(mapped);
-          }
           if (mapped.length) rows = mapped;
+        } else if (payload?.error) {
+          return res.status(502).json({ error: String(payload.error).slice(0, 300) });
         }
       }
     }
 
-    if (skipped.length) {
+    if (!rows) {
+      return res.status(r.ok ? 502 : r.status).json({
+        error: `metabase could not run question ${id}: ${text.slice(0, 300)}`
+      });
+    }
+
+    const got = periodOf(rows);
+    if (wantMonth && got && got !== wantMonth) {
       return res.status(200).json({
         rows,
-        warning: `question ${id} has no template tag named ${skipped.join(', ')}`
+        warning: `filters did not bind — the question returned ${got} instead of ${wantMonth}. Check /api/metabase?id=${id}&debug=1`
       });
     }
 

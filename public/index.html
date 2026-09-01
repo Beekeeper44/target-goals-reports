@@ -38,6 +38,8 @@ header{display:flex;align-items:flex-start;gap:18px}
 /* ---------- tabs + actions ---------- */
 button.btn{background:transparent;border:1px solid var(--line);color:var(--text);font:inherit;letter-spacing:1.2px;padding:9px 14px;cursor:pointer}
 button.btn:hover{border-color:var(--green);color:var(--green)}
+button.btn:disabled{opacity:.65;cursor:default}
+button.btn.running{border-color:var(--green);color:var(--green)}
 button.btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 
 /* ---------- filters ---------- */
@@ -328,9 +330,11 @@ async function loadFromMetabase(){
   banner('');
   state.loading=true; state.rows=[]; state.period=null;
   state.source='running question '+QUESTION_ID+'…';
+  const runBtn=document.getElementById('btnRun');
+  runBtn.textContent='RUNNING…'; runBtn.disabled=true; runBtn.classList.add('running');
   render();
   const ctrl=new AbortController();
-  const timer=setTimeout(()=>ctrl.abort(),70000);
+  const timer=setTimeout(()=>ctrl.abort(),58000);
   try{
     const qs=new URLSearchParams({id:QUESTION_ID});
     if(state.monthText) qs.set('report_month',state.monthText);
@@ -357,10 +361,12 @@ async function loadFromMetabase(){
     if(token!==fetchToken) return;
     state.loading=false; state.rows=[]; state.source='no data'; render();
     banner(e.name==='AbortError'
-      ? 'The question did not finish within 70 seconds — Snowflake may be slow, or the serverless function timed out. Check the function log in Vercel.'
+      ? 'The question did not finish within 58 seconds — the serverless function tops out at 60. Check the function log in Vercel; if it says the task timed out, the query itself is the bottleneck.'
       : (e.message||'Request failed.'));
   }finally{
     clearTimeout(timer);
+    const b=document.getElementById('btnRun');
+    b.textContent='RUN REPORT'; b.disabled=false; b.classList.remove('running');
     if(token===fetchToken&&state.loading){state.loading=false;render()}
   }
 }
