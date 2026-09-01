@@ -23,15 +23,28 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: `question ${id} is not allowed by this endpoint` });
   }
 
-  // Passed through only if the saved question declares month / year template tags.
+  // Question 30328 declares {{report_month}} (Text) and {{report_year}} (Number).
+  // report_month accepts a month name; report_year is a plain number.
+  const MONTH_NAMES = ['january','february','march','april','may','june',
+                       'july','august','september','october','november','december'];
+
   const parameters = [];
   const month = parseInt(req.query.month, 10);
   const year = parseInt(req.query.year, 10);
+
   if (month >= 1 && month <= 12) {
-    parameters.push({ type: 'number/=', target: ['variable', ['template-tag', 'month']], value: month });
+    parameters.push({
+      type: 'category',
+      target: ['variable', ['template-tag', 'report_month']],
+      value: MONTH_NAMES[month - 1]
+    });
   }
   if (year >= 2000 && year <= 2100) {
-    parameters.push({ type: 'number/=', target: ['variable', ['template-tag', 'year']], value: year });
+    parameters.push({
+      type: 'number/=',
+      target: ['variable', ['template-tag', 'report_year']],
+      value: year
+    });
   }
 
   const run = (body) =>
@@ -44,8 +57,8 @@ export default async function handler(req, res) {
   try {
     let r = await run(parameters.length ? { parameters } : {});
 
-    // If the card has no such template tags Metabase rejects the parameters.
-    // Retry once without them so the card's own period still comes back.
+    // If Metabase rejects the parameters, retry once without them so the card's
+    // own default period still comes back rather than an error page.
     if (!r.ok && parameters.length) r = await run({});
 
     const text = await r.text();

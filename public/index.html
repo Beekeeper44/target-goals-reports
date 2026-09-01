@@ -80,6 +80,12 @@ td.metric{letter-spacing:.4px}
 .warn{color:var(--amber)}
 .bad{color:var(--red)}
 .dim{color:var(--text)}
+.banner{display:none;margin-top:18px;border:1px solid var(--red);background:#160b0b;color:var(--red);padding:14px 16px;line-height:1.7}
+.banner.show{display:block}
+.banner b{display:block;letter-spacing:1.4px;margin-bottom:6px}
+.banner code{color:var(--green)}
+.banner button{margin-top:10px;background:transparent;border:1px solid var(--red);color:var(--red);font:inherit;letter-spacing:1.2px;padding:7px 12px;cursor:pointer}
+.banner button:hover{border-color:var(--green);color:var(--green)}
 .empty{padding:60px 16px;text-align:center;color:var(--muted)}
 .empty b{display:block;color:var(--text);margin-bottom:8px;letter-spacing:1px}
 
@@ -101,7 +107,7 @@ footer{margin-top:34px;color:var(--muted);font-size:11px;letter-spacing:1px}
     <h1>Target Goals <span>Reports</span></h1>
     <div class="sub"><i class="dot"></i> Month-to-date totals and daily run rate by metric</div>
   </div>
-  <div class="meta">metrics <b id="mCount">0</b> · <span id="mSource">demo data</span></div>
+  <div class="meta">metrics <b id="mCount">0</b> · <span id="mSource">loading…</span></div>
 </header>
 
 <div class="filters">
@@ -120,6 +126,8 @@ footer{margin-top:34px;color:var(--muted);font-size:11px;letter-spacing:1px}
   <div class="spacer"></div>
   <button class="btn" id="btnCsv">EXPORT CSV</button>
 </div>
+
+<div class="banner" id="banner"></div>
 
 <div class="panel">
   <div class="head">
@@ -148,32 +156,10 @@ let state={
   month:now.getMonth()+1,
   year:now.getFullYear(),
   search:'',
-  source:'demo data',
+  source:'loading…',
   sort:{key:'metric',dir:1},
   rows:[]
 };
-
-/* demo data — replace by loading a report */
-const DEMO=[
-  {month:9,year:2026,metric:'customers',current_total:12560,elapsed_biz_days:21,daily_avg:598},
-  {month:9,year:2026,metric:'customers_raw',current_total:8672,elapsed_biz_days:21,daily_avg:413},
-  {month:9,year:2026,metric:'slab_packs',current_total:116134,elapsed_biz_days:21,daily_avg:5530},
-  {month:9,year:2026,metric:'slab_packs_raw',current_total:2870,elapsed_biz_days:21,daily_avg:137},
-  {month:9,year:2026,metric:'total_cards',current_total:128694,elapsed_biz_days:21,daily_avg:6128},
-  {month:9,year:2026,metric:'process',current_total:125094,elapsed_biz_days:21,daily_avg:5957},
-  {month:9,year:2026,metric:'scan',current_total:127645,elapsed_biz_days:21,daily_avg:6078},
-  {month:9,year:2026,metric:'vault',current_total:137398,elapsed_biz_days:21,daily_avg:6543},
-  {month:9,year:2026,metric:'ship',current_total:105038,elapsed_biz_days:21,daily_avg:5002},
-  {month:8,year:2026,metric:'customers',current_total:13120,elapsed_biz_days:21,daily_avg:625},
-  {month:8,year:2026,metric:'customers_raw',current_total:9040,elapsed_biz_days:21,daily_avg:430},
-  {month:8,year:2026,metric:'slab_packs',current_total:121880,elapsed_biz_days:21,daily_avg:5804},
-  {month:8,year:2026,metric:'slab_packs_raw',current_total:3120,elapsed_biz_days:21,daily_avg:149},
-  {month:8,year:2026,metric:'total_cards',current_total:134160,elapsed_biz_days:21,daily_avg:6389},
-  {month:8,year:2026,metric:'process',current_total:131020,elapsed_biz_days:21,daily_avg:6239},
-  {month:8,year:2026,metric:'scan',current_total:133410,elapsed_biz_days:21,daily_avg:6353},
-  {month:8,year:2026,metric:'vault',current_total:139980,elapsed_biz_days:21,daily_avg:6666},
-  {month:8,year:2026,metric:'ship',current_total:111240,elapsed_biz_days:21,daily_avg:5297}
-];
 
 /* ---------- filters ---------- */
 const selM=document.getElementById('fMonth'), selY=document.getElementById('fYear');
@@ -301,6 +287,7 @@ function normalize(raw){
       elapsed_biz_days:elapsed,
       daily_avg:num(o.daily_avg)??(elapsed?total/elapsed:0),
       promo:num(o.promo)??num(o.promo_add)??null,
+      report_month:o.report_month?String(o.report_month):null,
       month:num(o.month)??state.month,
       year:num(o.year)??state.year
     };
@@ -310,23 +297,45 @@ function loadRows(rows,source){
   state.rows=JSON.parse(JSON.stringify(rows)); state.source=source; render();
 }
 
-/* pulls question 30328 through /api/metabase; falls back to demo data */
+/* pulls question 30328 through /api/metabase */
 let fetchToken=0;
+function banner(msg){
+  const b=document.getElementById('banner');
+  if(!msg){b.classList.remove('show');b.innerHTML='';return}
+  b.innerHTML=`<b>Could not load question ${QUESTION_ID}</b>${msg}<br><button id="btnRetry">RETRY</button>`;
+  b.classList.add('show');
+  document.getElementById('btnRetry').onclick=loadFromMetabase;
+}
 async function loadFromMetabase(){
   const token=++fetchToken;
+  banner('');
   state.source='loading question '+QUESTION_ID+'…';
   document.getElementById('mSource').textContent=state.source;
   try{
     const res=await fetch(`/api/metabase?id=${QUESTION_ID}&month=${state.month}&year=${state.year}`);
+    const ct=res.headers.get('content-type')||'';
+    if(!ct.includes('json')){
+      throw new Error('The <code>/api/metabase</code> route did not respond with JSON. If you opened this file directly, or deployed without the <code>api/</code> folder, there is no server function to call.');
+    }
     const body=await res.json();
     if(token!==fetchToken) return;
-    if(!res.ok) throw new Error(body.error||('server returned '+res.status));
-    const rows=normalize(Array.isArray(body)?body:(body.rows||body.data||[]));
-    if(!rows.length) throw new Error('question returned no rows');
+    if(!res.ok) throw new Error(String(body.error||('server returned '+res.status)));
+    const raw=Array.isArray(body)?body:(body.rows||body.data||[]);
+    if(!raw.length) throw new Error('The question ran but returned zero rows.');
+    const rows=normalize(raw);
+    if(!rows.length){
+      throw new Error('The question returned '+raw.length+' rows, but none had a metric column. Columns received: <code>'+Object.keys(raw[0]).join(', ')+'</code>');
+    }
     loadRows(rows,'question '+QUESTION_ID);
+    const want=`${state.year}-${String(state.month).padStart(2,'0')}`;
+    const got=rows.find(r=>r.report_month)?.report_month;
+    if(got&&!String(got).startsWith(want)){
+      banner(`The question returned <code>${got}</code>, not <code>${want}</code>. Its <code>report_month</code> / <code>report_year</code> variables did not take the filter values, so these numbers are for a different period.`);
+    }
   }catch(e){
     if(token!==fetchToken) return;
-    loadRows(DEMO,'demo data · '+(e.message||'metabase unavailable'));
+    state.rows=[]; state.source='no data'; render();
+    banner(e.message||'Request failed.');
   }
 }
 
@@ -346,7 +355,6 @@ document.getElementById('btnCsv').onclick=()=>{
   a.click();
 };
 
-loadRows(DEMO,'demo data');
 loadFromMetabase();
 </script>
 </body>
