@@ -1,12 +1,5 @@
 {
-  "name": "target-goals-reports",
-  "version": "1.0.0",
+  "name": "goal-pace",
   "private": true,
-  "type": "module",
-  "description": "Arena Club — monthly target goals report against Metabase question 30328",
-  "engines": { "node": ">=20" },
-  "scripts": {
-    "dev": "vercel dev",
-    "deploy": "vercel --prod"
-  }
+  "version": "1.0.0"
 }

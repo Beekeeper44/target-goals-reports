@@ -1,393 +1,1054 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Target Goals Reports · Arena Club</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Goal Pace · Arena Club</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#050505;
-  --panel:#0c0e0c;
-  --panel-2:#111411;
-  --line:#1d221d;
-  --green:#39FF14;
-  --green-dim:#1f7a12;
-  --text:#e8ece8;
-  --muted:#e8ece8;
-  --red:#ff4d4d;
-  --amber:#ffb020;
+  --bg:#000; --panel:#070807; --panel2:#0c0e0c; --line:#1d211d; --line2:#2a302a;
+  --text:#e7ebe6; --muted:#8b928a; --dim:#5d635c;
+  --green:#52c94f; --green-d:#1f4a1e; --amber:#f2b84b; --amber-d:#4a3a14; --red:#ff5d5d; --red-d:#4a1c1c; --blue:#7fb4ff;
+  --font:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:var(--bg);color:var(--text)}
-body{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:13px;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1500px;margin:0 auto;padding:22px 26px 80px}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.45}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button,input{font-family:inherit;font-size:inherit;color:inherit}
+.gp-wrap{max-width:1320px;margin:0 auto;padding:18px 20px 60px}
 
-/* ---------- header ---------- */
-header{display:flex;align-items:flex-start;gap:18px}
-.logo{width:74px;height:auto;flex:0 0 auto;margin-top:2px}
-.titleblock h1{font-family:Inter,system-ui,sans-serif;font-size:38px;font-weight:800;letter-spacing:-.5px;margin:0;line-height:1}
-.titleblock h1 span{color:var(--green)}
-.sub{margin-top:8px;color:var(--muted);display:flex;align-items:center;gap:8px}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
-.meta{margin-left:auto;color:var(--muted);font-size:12px;text-align:right;padding-top:6px}
-.meta b{color:var(--text);font-weight:500}
+/* top bar */
+.gp-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.gp-brand{display:flex;align-items:baseline;gap:10px}
+.gp-brand b{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.gp-brand .gp-dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);align-self:center}
+.gp-brand .gp-sub{color:var(--muted)}
+.gp-rangeline{color:var(--muted)}
+.gp-rangeline b{color:var(--text);font-weight:700}
+.gp-banner{margin-top:12px;padding:8px 12px;border:1px dashed var(--amber);color:var(--amber);border-radius:6px}
 
-/* ---------- tabs + actions ---------- */
-button.btn{background:transparent;border:1px solid var(--line);color:var(--text);font:inherit;letter-spacing:1.2px;padding:9px 14px;cursor:pointer}
-button.btn:hover{border-color:var(--green);color:var(--green)}
-button.btn:disabled{opacity:.65;cursor:default}
-button.btn.running{border-color:var(--green);color:var(--green)}
-button.btn:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+/* controls */
+.gp-controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:16px 0}
+.gp-field{display:flex;flex-direction:column;gap:5px}
+.gp-field label,.gp-label{color:var(--muted);font-size:11px}
+.gp-grow{flex:1 1 320px}
+.gp-field input{background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:9px 11px;outline:none;min-width:0}
+.gp-field input:focus{border-color:var(--green)}
+.gp-field input[type=date]{color-scheme:dark}
+.gp-hint{color:var(--dim);font-size:11px;min-height:15px}
+.gp-hint.ok{color:var(--green)} .gp-hint.bad{color:var(--red)}
+.gp-btn{background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:9px 14px;cursor:pointer}
+.gp-btn:hover{border-color:var(--green)}
+.gp-primary{background:var(--green);color:#000;border-color:var(--green);font-weight:700}
+.gp-primary:hover{filter:brightness(1.1)}
+.gp-presets{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.gp-presets button{background:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px;cursor:pointer;color:var(--muted)}
+.gp-presets button:hover{color:var(--text);border-color:var(--green)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 
-/* ---------- filters ---------- */
-.filters{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;margin-top:26px;padding:16px;border:1px solid var(--line);background:var(--panel)}
-.field{display:flex;flex-direction:column;gap:6px}
-.field label{color:var(--muted);font-size:11px;letter-spacing:1.2px}
-select,input[type=text],input[type=number]{background:var(--panel-2);border:1px solid var(--line);color:var(--text);font:inherit;padding:9px 10px;min-width:130px}
-select:hover,input:hover{border-color:var(--green-dim)}
-.spacer{flex:1}
+/* pace panel */
+.gp-pace{border:1px solid var(--line2);border-radius:10px;padding:18px 20px;background:var(--panel)}
+.gp-pace-head{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.gp-selnames{margin-top:4px;display:flex;flex-wrap:wrap;gap:6px}
+.gp-chip{border:1px solid var(--line2);border-radius:4px;padding:2px 8px;cursor:pointer;background:none}
+.gp-chip:hover{border-color:var(--red);color:var(--red)}
+.gp-empty{color:var(--dim)}
+.gp-goalbox{display:grid;grid-template-columns:auto auto;gap:6px 10px;align-items:center}
+.gp-goalbox label{color:var(--muted);font-size:11px;grid-column:1/-1}
+.gp-goalbox input{background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:9px 11px;width:160px;font-size:16px;font-weight:700;outline:none}
+.gp-goalbox input:focus{border-color:var(--green)}
+.gp-goalbox .gp-hint{grid-column:1/-1}
+.gp-seg{display:inline-flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+.gp-seg button{background:none;border:0;padding:8px 11px;cursor:pointer;color:var(--muted)}
+.gp-seg button.on{background:var(--green);color:#000;font-weight:700}
 
-/* ---------- summary ---------- */
+.gp-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:16px 0 12px}
+.gp-big{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.gp-big #bigCur{font-size:clamp(40px,7vw,72px);font-weight:800;letter-spacing:-.04em;line-height:1}
+.gp-of{color:var(--muted);font-size:18px}
+.gp-of b{color:var(--text)}
+.gp-pill{display:inline-block;border-radius:999px;padding:3px 10px;font-weight:700;font-size:12px;white-space:nowrap;border:1px solid var(--line2);color:var(--muted)}
+.gp-hero .gp-pill{font-size:15px;padding:7px 16px}
+.gp-pill.ahead,.gp-pill.onpace,.gp-pill.hit{color:var(--green);border-color:var(--green);background:#0b1a0b}
+.gp-pill.risk{color:var(--amber);border-color:var(--amber);background:#1a1407}
+.gp-pill.behind,.gp-pill.missed{color:var(--red);border-color:var(--red);background:#1c0a0a}
+.gp-pill.upcoming,.gp-pill.notstarted{color:var(--blue);border-color:#2a3e5c}
 
-/* ---------- table ---------- */
-.panel{margin-top:18px;border:1px solid var(--line);background:var(--panel)}
-.panel .head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
-.panel .head .t{letter-spacing:1.6px}
-.panel .head .h{color:var(--muted);font-size:11px;letter-spacing:1.2px}
-table{width:100%;border-collapse:collapse}
-th{color:var(--muted);font-weight:400;font-size:11px;letter-spacing:1.3px;text-align:right;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel-2);white-space:nowrap;cursor:pointer;user-select:none}
-th:first-child{text-align:left}
-th.sorted{color:var(--green)}
-td{padding:12px 16px;text-align:right;border-bottom:1px solid #131813;font-variant-numeric:tabular-nums}
-td:first-child{text-align:left;color:var(--text)}
-tbody tr:hover td{background:#0f130f}
-tr.group td{background:#0f150f;color:var(--green);letter-spacing:1.8px;font-size:11px;border-bottom:1px solid var(--line);border-top:1px solid var(--line);padding:10px 16px}
-tr.group td:last-child{color:var(--text);letter-spacing:1.2px}
-tr.group:hover td{background:#0f150f}
-span.adj{color:var(--green)}
-td input.numedit{width:120px;text-align:right;padding:6px 9px;background:#0a0d0a;border:1px solid var(--line);color:var(--green);font:inherit;font-variant-numeric:tabular-nums}
-td input.numedit::placeholder{color:var(--green-dim);letter-spacing:.5px}
-td input.numedit:hover{border-color:var(--green-dim)}
-td input.numedit:focus{border-color:var(--green);outline:none}
-td input.numedit::-webkit-outer-spin-button,td input.numedit::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-td input.numedit{-moz-appearance:textfield;appearance:textfield}
-tr.gap td{height:26px;border-bottom:0;padding:0;background:var(--bg)}
-tr.gap:hover td{background:var(--bg)}
-td.metric{letter-spacing:.4px}
-.pill{display:inline-block;padding:3px 9px;border:1px solid currentColor;font-size:11px;letter-spacing:1px}
-.ok{color:var(--green)}
-.warn{color:var(--amber)}
-.bad{color:var(--red)}
-.dim{color:var(--text)}
-.banner{display:none;margin-top:18px;border:1px solid var(--red);background:#160b0b;color:var(--red);padding:14px 16px;line-height:1.7}
-.banner.show{display:block}
-.banner b{display:block;letter-spacing:1.4px;margin-bottom:6px}
-.banner code{color:var(--green)}
-.banner button{margin-top:10px;background:transparent;border:1px solid var(--red);color:var(--red);font:inherit;letter-spacing:1.2px;padding:7px 12px;cursor:pointer}
-.banner button:hover{border-color:var(--green);color:var(--green)}
-.empty{padding:60px 16px;text-align:center;color:var(--muted)}
-.empty b{display:block;color:var(--text);margin-bottom:8px;letter-spacing:1px}
+.gp-bar{position:relative;height:18px;border-radius:4px;background:var(--panel2);border:1px solid var(--line2);margin:24px 0 8px}
+.gp-fill{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--green);width:0;transition:width .5s ease}
+.gp-fill.risk{background:var(--amber)} .gp-fill.behind,.gp-fill.missed{background:var(--red)}
+.gp-mark{position:absolute;top:-8px;bottom:-8px;width:2px;background:var(--text);left:0;transition:left .5s ease}
+.gp-mark span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted);white-space:nowrap;margin-bottom:2px}
+@media (prefers-reduced-motion:reduce){.gp-fill,.gp-mark{transition:none}}
 
-footer{margin-top:34px;color:var(--muted);font-size:11px;letter-spacing:1px}
-@media (max-width:720px){
-  .titleblock h1{font-size:26px}
-  .logo{width:54px}
-  .meta{display:none}
-  .wrap{padding:16px}
+.gp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-top:18px}
+.gp-stat{background:var(--panel);padding:11px 13px}
+.gp-stat .k{color:var(--muted);font-size:11px}
+.gp-stat .v{font-size:18px;font-weight:700;margin-top:2px}
+.gp-stat .s{color:var(--dim);font-size:11px}
+.pos{color:var(--green)} .neg{color:var(--red)}
+.gp-warn{margin-top:12px;color:var(--amber);font-size:12px}
+
+/* cards & tables */
+.gp-card{margin-top:22px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.gp-card-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px 10px}
+.gp-card-head h2{margin:0;font-size:14px;font-weight:700}
+.gp-tablewrap{overflow-x:auto}
+.gp-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.gp-table th{color:var(--muted);font-weight:500;text-align:right;padding:8px 9px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);white-space:nowrap;font-size:11px}
+.gp-table td{text-align:right;padding:8px 9px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.gp-table th:first-child,.gp-table td:first-child{text-align:left}
+.gp-table th.l,.gp-table td.l{text-align:left}
+.gp-table tr.gp-group td{color:var(--muted);font-size:11px;background:var(--panel2)}
+.gp-grpl{display:inline-flex;align-items:center;gap:9px;cursor:pointer;color:var(--text);font-weight:700}
+.gp-grpl:hover{color:var(--green)}
+.gp-quick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:0 16px 12px}
+.gp-quick .gp-label{margin-right:4px}
+.gp-quick button{background:none;border:1px solid var(--line2);border-radius:999px;padding:4px 11px;cursor:pointer;color:var(--muted)}
+.gp-quick button:hover{color:var(--text);border-color:var(--green)}
+.gp-quick .sep{width:1px;height:18px;background:var(--line2);margin:0 6px}
+input[type=checkbox].gp-cb{appearance:none;-webkit-appearance:none;width:16px;height:16px;border:1.5px solid var(--line2);border-radius:3px;background:var(--panel2);cursor:pointer;display:inline-grid;place-content:center;margin:0}
+input[type=checkbox].gp-cb:hover{border-color:var(--green)}
+input[type=checkbox].gp-cb:checked{background:var(--green);border-color:var(--green)}
+input[type=checkbox].gp-cb:checked::after{content:'';width:4px;height:8px;border:solid #000;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+input[type=checkbox].gp-cb:indeterminate{background:var(--green-d);border-color:var(--green)}
+input[type=checkbox].gp-cb:indeterminate::after{content:'';width:8px;height:2px;background:var(--green)}
+.gp-tcell{display:flex;align-items:center;justify-content:flex-end;gap:6px}
+.gp-rseg{display:inline-flex;border:1px solid var(--line2);border-radius:5px;overflow:hidden;font-size:11px}
+.gp-rseg button{background:none;border:0;padding:5px 7px;cursor:pointer;color:var(--muted)}
+.gp-rseg button.on{background:var(--green);color:#000;font-weight:700}
+.gp-tsub{color:var(--dim);font-size:10.5px;margin-top:3px;text-align:right}
+.gp-table tbody tr.gp-row:hover td{background:#0b0d0b}
+.gp-table tr.sel td{background:#0a140a}
+.gp-table tr.gp-total td{font-weight:700;border-top:1px solid var(--line2)}
+.gp-mname{display:flex;align-items:center;gap:9px;cursor:pointer}
+.gp-mname input{accent-color:var(--green);width:15px;height:15px;cursor:pointer}
+.gp-note{color:var(--dim);font-size:10.5px;margin-left:4px}
+.gp-tin{background:var(--panel2);border:1px solid var(--line2);border-radius:5px;padding:5px 7px;width:92px;text-align:right;outline:none}
+.gp-tin:focus{border-color:var(--green)}
+.gp-tin.ov{border-color:var(--green);color:var(--green)}
+.gp-mini{height:4px;background:var(--panel2);border-radius:2px;margin-top:4px;width:70px;margin-left:auto;overflow:hidden}
+.gp-mini i{display:block;height:100%;background:var(--green)}
+.gp-mini i.risk{background:var(--amber)} .gp-mini i.behind,.gp-mini i.missed{background:var(--red)}
+
+.gp-share{padding:4px 16px 14px;display:grid;gap:7px}
+.gp-sharerow{display:grid;grid-template-columns:150px 1fr 150px;gap:12px;align-items:center}
+.gp-sharerow .t{height:12px;background:var(--panel2);border-radius:3px;overflow:hidden}
+.gp-sharerow .t i{display:block;height:100%;background:var(--green)}
+.gp-sharerow .n{text-align:right;color:var(--muted)}
+.gp-sharerow .n b{color:var(--text)}
+.gp-sub2{color:var(--muted);font-size:11px;padding:0 16px 8px}
+.gp-loading{opacity:.45;pointer-events:none}
+
+.gp-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--green);color:var(--text);padding:10px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;max-width:90vw}
+.gp-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.gp-toast.err{border-color:var(--red)}
+
+@media (max-width:640px){
+  .gp-wrap{padding:14px 12px 50px}
+  .gp-sharerow{grid-template-columns:100px 1fr 110px}
 }
+
+/* ===== Target Goals Reports skin ===== */
+:root{
+  --bg:#030303; --panel:#0b0d0b; --panel2:#121412; --line:#1f231f; --line2:#2b302b;
+  --text:#e9ece8; --muted:#b4b9b3; --dim:#858b84;
+  --green:#39ff14; --green-d:#123d0b;
+}
+.gp-wrap{max-width:1480px;padding:22px 32px 40px}
+.gp-top{border-bottom:0;padding-bottom:4px;align-items:flex-start}
+.gp-brand{align-items:center;gap:18px}
+.gp-logo{position:relative;width:74px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:none}
+.gp-logo::before{content:'';position:absolute;left:12px;right:12px;top:0;bottom:0;border:3px solid #fff}
+.gp-logo::after{content:'';position:absolute;right:9px;top:-3px;width:14px;height:14px;border-top:3px solid var(--green);border-right:3px solid var(--green)}
+.gp-logo .a{position:relative;z-index:1;background:var(--bg);font-family:Inter,Arial,sans-serif;font-weight:800;font-size:17px;letter-spacing:-.02em;line-height:1;padding:1px 1px;color:#fff;margin-top:-4px}
+.gp-logo .c{position:relative;z-index:1;font-family:Inter,Arial,sans-serif;font-weight:800;font-size:7px;letter-spacing:.12em;color:#fff;margin-top:1px}
+.gp-title{margin:0;font-family:Inter,Arial,sans-serif;font-weight:800;font-size:38px;letter-spacing:-.03em;line-height:1.05;color:#e9ece8}
+.gp-title span{color:var(--green)}
+.gp-tag{display:flex;align-items:center;gap:7px;margin-top:6px;color:var(--text);font-size:12.5px}
+.gp-tag i{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex:none}
+.gp-rangeline{font-size:12px;color:var(--text);padding-top:6px}
+.gp-rangeline b{font-weight:500}
+.gp-banner{border-radius:0}
+
+.gp-panelbox{background:var(--panel);border:1px solid var(--line);padding:16px;margin:22px 0 18px}
+.gp-field label,.gp-label,.gp-goalbox label{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.12em}
+.gp-field input,.gp-goalbox input,.gp-tin{border-radius:0;background:var(--panel2);border-color:var(--line2)}
+.gp-field input{padding:10px 11px}
+.gp-btn{border-radius:0;text-transform:uppercase;letter-spacing:.1em;font-size:12px;padding:10px 16px;background:var(--panel)}
+.gp-primary{background:transparent;color:var(--green);border-color:var(--green);font-weight:500}
+.gp-primary:hover{background:var(--green);color:#000;filter:none}
+.gp-presets button,.gp-quick button{border-radius:0;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;padding:5px 10px;color:var(--text);background:var(--panel2)}
+.gp-presets button:hover,.gp-quick button:hover{border-color:var(--green);color:var(--green)}
+
+.gp-pace,.gp-card{border-radius:0;border:1px solid var(--line);background:var(--panel);margin-top:18px}
+.gp-pace{padding:0}
+.gp-barhead,.gp-card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)}
+.gp-barhead>span:first-child,.gp-card-head h2{font-size:13px;font-weight:500;text-transform:uppercase;letter-spacing:.14em;margin:0}
+.gp-barhead .gp-hint,.gp-card-head .gp-hint{text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;color:var(--text);min-height:0}
+.gp-pace-head,.gp-hero,.gp-bar,.gp-stats,.gp-warn{margin-left:16px;margin-right:16px}
+.gp-pace-head{padding-top:16px}
+.gp-stats{margin-bottom:16px;border-radius:0}
+.gp-warn{padding-bottom:14px}
+.gp-big #bigCur{font-family:Inter,Arial,sans-serif;letter-spacing:-.03em}
+.gp-seg,.gp-rseg{border-radius:0}
+.gp-seg button,.gp-rseg button{text-transform:uppercase;letter-spacing:.06em;font-size:10.5px}
+.gp-pill{border-radius:0;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;font-weight:500}
+.gp-hero .gp-pill{font-size:13px}
+.gp-chip{border-radius:0}
+.gp-bar,.gp-fill,.gp-mini,.gp-mini i,.gp-sharerow .t,.gp-sharerow .t i{border-radius:0}
+.gp-quick{padding:12px 16px;border-bottom:1px solid var(--line)}
+.gp-share{padding:14px 16px}
+.gp-table th{text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--muted);border-top:0}
+.gp-table tr.gp-group td{text-transform:uppercase;letter-spacing:.1em;font-size:10.5px}
+.gp-grpl{font-weight:500}
+input[type=checkbox].gp-cb{border-radius:0}
+.gp-toast{border-radius:0}
+.gp-foot{margin-top:28px;font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--text)}
+
+.gp-stat .k{text-transform:uppercase;letter-spacing:.1em;font-size:10px}
+@media (max-width:640px){.gp-wrap{padding:16px 14px 40px}.gp-title{font-size:28px}}
+
+/* ===== match Target Goals Reports table ===== */
+.gp-push{margin-left:auto}
+.gp-btn{color:var(--text);border-color:var(--line2);background:transparent;letter-spacing:.14em;font-size:12.5px;padding:10px 14px}
+.gp-btn:hover{border-color:var(--green);color:var(--green)}
+.gp-barhead>span:first-child,.gp-card-head h2{font-size:14px;letter-spacing:.2em}
+.gp-barhead .gp-hint,.gp-card-head .gp-hint{letter-spacing:.14em}
+.gp-table{font-size:13px}
+.gp-table th{letter-spacing:.12em;font-size:10px;color:var(--text);padding:12px 11px;border-bottom:1px solid var(--line);background:var(--panel)}
+.gp-table th.gp-sortable{cursor:pointer;user-select:none}
+.gp-table th.gp-sortable:hover,.gp-table th.on{color:var(--green)}
+.gp-table td{padding:15px 11px;border-bottom:1px solid var(--line)}
+.gp-table tbody tr.gp-row:hover td{background:#0e110e}
+.gp-table tr.sel td{background:#0c140b}
+.gp-table tr.gp-group td{background:#0d140d;color:var(--green);letter-spacing:.14em;padding:10px 16px;border-bottom:1px solid var(--line)}
+.gp-grpl{color:var(--green);font-weight:500;text-transform:uppercase}
+.gp-grpl:hover{color:var(--green)}
+.gp-gcount{color:var(--text)!important;text-transform:none!important;letter-spacing:.06em!important;text-align:right!important}
+.gp-table tr.gp-spacer td{padding:0;height:26px;border-bottom:1px solid var(--line);background:var(--panel)}
+.gp-tin{background:transparent;border:1px solid var(--line2);color:var(--green);width:104px;padding:7px 10px;text-align:right}
+.gp-tin::placeholder{color:#2e8a1f}
+.gp-tin:focus{border-color:var(--green)}
+.gp-tin.ov{border-color:var(--green)}
+.gp-mname{font-size:13px}
+.gp-note{letter-spacing:0}
+.gp-table th:first-child,.gp-table td:first-child{padding-left:16px}.gp-table th:last-child,.gp-table td:last-child{padding-right:16px}
+
+/* ===== calmer table, raw metrics in blue ===== */
+:root{--raw:#5cc8ff;--raw-bg:#08131a}
+.gp-table tr.raw td{background:var(--raw-bg)}
+.gp-table tr.raw td:first-child{box-shadow:inset 3px 0 0 var(--raw)}
+.gp-table tr.raw .gp-mname{color:var(--raw);padding-left:16px}
+.gp-table tr.raw td[data-c=cur],.gp-table tr.raw td[data-c=avg]{color:var(--raw)}
+.gp-table tr.raw .gp-note{color:#3f7fa3}
+.gp-table tr.raw .gp-tin::placeholder{color:#2f6585}
+.gp-table tr.raw input.gp-cb:checked{background:var(--raw);border-color:var(--raw)}
+.gp-table tr.raw.sel td{background:#0b1b25}
+.gp-sharerow.raw>div:first-child{color:var(--raw)}
+.gp-sharerow.raw .t i{background:var(--raw)}
+.gp-table th.raw{color:var(--raw)}
+.gp-tsub{opacity:0;transition:opacity .15s}
+.gp-row:hover .gp-tsub,.gp-row:focus-within .gp-tsub,.gp-tin.ov~.gp-tsub{opacity:1}
+.gp-rtog{background:none;border:1px solid var(--line2);color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:6px 7px;cursor:pointer;min-width:52px}
+.gp-rtog:hover{color:var(--green);border-color:var(--green)}
+.gp-st{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase}
+.gp-st.ahead,.gp-st.onpace,.gp-st.hit{color:var(--green)}
+.gp-st.risk{color:var(--amber)}
+.gp-st.behind,.gp-st.missed{color:var(--red)}
+.gp-st.notstarted,.gp-st.upcoming{color:var(--blue)}
+.gp-st.none{color:var(--dim)}
+.gp-table tr.gp-row:not(:hover) td[data-c=gap] .pos{color:#2fae16}
+
+.gp-table th{padding:12px 8px;letter-spacing:.08em}
+.gp-table td{padding:14px 8px}
+.gp-tin{width:92px}
+.gp-tsub{white-space:nowrap}
+@media (max-width:1250px){.gp-table .gp-note{display:none}}
+
+/* ===== clean table (matches Target Goals Reports) ===== */
+.gp-table th{padding:13px 16px;letter-spacing:.14em;font-size:10.5px}
+.gp-table td{padding:15px 16px;font-size:13.5px}
+.gp-table tr.raw td{background:transparent}
+.gp-table tr.raw td:first-child{box-shadow:none}
+.gp-table tr.raw .gp-mname{padding-left:0}
+.gp-table tr.raw.sel td,.gp-table tr.sel td{background:#0c120c}
+.gp-table .gp-note{display:none}
+.gp-tcell{gap:8px}
+.gp-tin{width:132px;padding:7px 10px}
+.gp-rtog{border-color:transparent;min-width:44px;padding:6px 4px;color:var(--dim)}
+.gp-rtog:hover{border-color:var(--line2)}
+.gp-tsub{min-height:0;position:absolute;right:68px;margin-top:2px}
+.gp-table td:last-child{position:relative}
+.gp-stp{color:var(--dim);margin-left:6px;letter-spacing:.04em}
+.gp-quick{padding:10px 16px}
+
+/* ===== metric colors + bar chart ===== */
+.gp-sw{display:inline-block;width:8px;height:8px;margin-right:8px;vertical-align:middle;flex:none}
+.gp-table tr.raw .gp-mname{color:inherit}
+.gp-table tr.raw td[data-c=cur],.gp-table tr.raw td[data-c=avg]{color:inherit}
+.gp-bk-right{display:flex;align-items:center;gap:14px}
+.gp-chart{padding:4px 0 0}
+.gp-chart svg{width:100%;height:auto;display:block}
+.gp-chart .gp-ax{fill:#8b928a;font-size:14px;font-family:var(--font)}
+.gp-chart .gp-val{fill:#e9ece8;font-size:16px;font-weight:700;font-family:var(--font)}
+.gp-chart .gp-xl{fill:#e9ece8;font-size:15px;font-family:var(--font)}
+.gp-legend{display:flex;flex-wrap:wrap;gap:16px;font-size:11px;color:var(--muted);margin-top:6px}
+.gp-legend span{display:inline-flex;align-items:center;gap:6px}
+.gp-legend i{width:12px;height:10px;display:inline-block}
+.gp-legend i.dash{height:0;border-top:2px dashed #e9ece8}
+.gp-legend i.ghost{border:1.5px dashed #e9ece8}
+#monthTable th,#monthTable td{padding-left:10px;padding-right:10px}
+#monthTable th:first-child,#monthTable td:first-child{padding-left:16px}
+#monthTable th:last-child,#monthTable td:last-child{padding-right:16px}
+
+/* ===== readability: larger type ===== */
+html,body{font-size:15px}
+.gp-tag{font-size:14px}
+.gp-rangeline{font-size:13.5px}
+.gp-field label,.gp-label,.gp-goalbox label{font-size:12px;letter-spacing:.1em}
+.gp-hint{font-size:12.5px}
+.gp-field input{font-size:15px}
+.gp-btn{font-size:13.5px}
+.gp-presets button,.gp-quick button{font-size:12px;padding:6px 11px}
+.gp-barhead>span:first-child,.gp-card-head h2{font-size:15.5px}
+.gp-barhead .gp-hint,.gp-card-head .gp-hint{font-size:12px}
+.gp-goalbox input{font-size:18px}
+.gp-seg button{font-size:12px;padding:9px 12px}
+.gp-chip{font-size:14px;padding:3px 9px}
+.gp-of{font-size:22px}
+.gp-mark span{font-size:12px}
+.gp-hero .gp-pill{font-size:15px;padding:8px 18px}
+.gp-stat{padding:13px 15px}
+.gp-stat .k{font-size:12px}
+.gp-stat .v{font-size:24px}
+.gp-stat .s{font-size:12.5px}
+.gp-warn{font-size:14px}
+.gp-table th{font-size:12px;letter-spacing:.1em}
+.gp-table td{font-size:15px}
+.gp-table tr.gp-group td{font-size:12.5px}
+.gp-mname{font-size:15px}
+.gp-tin{font-size:15px;width:140px}
+.gp-tsub{font-size:12px}
+.gp-rtog{font-size:12px}
+.gp-st{font-size:12.5px}
+.gp-stp{font-size:13.5px}
+.gp-pill{font-size:12px}
+.gp-sharerow{font-size:14.5px;grid-template-columns:180px 1fr 170px}
+.gp-sharerow .t{height:14px}
+.gp-legend{font-size:13px}
+.gp-note{font-size:12.5px}
+.gp-foot{font-size:12px}
+.gp-toast{font-size:14px}
+.gp-banner{font-size:14px}
+.gp-sw{width:10px;height:10px}
+@media (max-width:640px){.gp-sharerow{grid-template-columns:110px 1fr 120px}}
+.gp-logoimg{height:64px;width:auto;display:block;flex:none;image-rendering:auto}
+.gp-xin{width:112px}
+#metricTable th{padding-left:10px;padding-right:10px;letter-spacing:.08em}
+#metricTable td{padding-left:10px;padding-right:10px}
+#metricTable th:first-child,#metricTable td:first-child{padding-left:16px}
+#metricTable th:last-child,#metricTable td:last-child{padding-right:16px}
+#metricTable .gp-tin:not(.gp-xin){width:120px}
+#metricTable .gp-rtog{min-width:36px}
+.gp-xsub{color:var(--dim);font-size:12px;margin-top:2px}
+.gp-xrow td{color:var(--muted)}
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="gp-wrap">
+  <header class="gp-top">
+    <div class="gp-brand">
+      <img class="gp-logoimg" src="data:image/png;base64,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" alt="Arena Club">
+      <div>
+        <h1 class="gp-title">Goal <span>Pace</span></h1>
+        <div class="gp-tag"><i></i>Type a range the way you'd say it, like oct - dec or q4. Leave it blank for the current month.</div>
+      </div>
+    </div>
+    <div class="gp-rangeline" id="rangeLine">Loading…</div>
+  </header>
+  <div id="demoBanner" class="gp-banner" hidden>Demo data. The API isn't reachable from here, so numbers are simulated from the October daily averages. Deploy to Vercel with METABASE_HOST and METABASE_API_KEY for live numbers.</div>
 
-<header>
-  <img class="logo" alt="Arena Club" src="data:image/png;base64,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">
-  <div class="titleblock">
-    <h1>Target Goals <span>Reports</span></h1>
-    <div class="sub"><i class="dot"></i> Type a month the way you would in Metabase — leave both blank for the current month</div>
-  </div>
-  <div class="meta">metrics <b id="mCount">0</b> · <span id="mSource">loading…</span></div>
-</header>
+  <section class="gp-controls gp-panelbox">
+    <div class="gp-field gp-grow">
+      <label for="rangeText">Date range</label>
+      <input id="rangeText" placeholder="Type a range: oct - dec, q4, sept, last month, 10/1 - 11/15" autocomplete="off">
+      <div class="gp-hint" id="rangeHint"></div>
+    </div>
+    <div class="gp-field"><label for="startDate">Start</label><input type="date" id="startDate"></div>
+    <div class="gp-field"><label for="endDate">End</label><input type="date" id="endDate"></div>
+    <div class="gp-field"><label>&nbsp;</label><button id="loadBtn" class="gp-btn">Run report</button></div>
+    <div class="gp-field gp-push"><label>&nbsp;</label><button id="csvBtn" class="gp-btn">Export CSV</button></div>
+    <div class="gp-presets" id="presets">
+      <button data-q="this month">This month</button>
+      <button data-q="last month">Last month</button>
+      <button data-q="this quarter">This quarter</button>
+      <button data-q="q4">Q4</button>
+      <button data-q="ytd">Year to date</button>
+    </div>
+  </section>
 
-<div class="filters">
-  <div class="field">
-    <label for="fMonth">REPORT MONTH</label>
-    <input type="text" id="fMonth" placeholder="august · 2026-08 · 8" style="min-width:190px" autocomplete="off">
-  </div>
-  <div class="field">
-    <label for="fYear">REPORT YEAR</label>
-    <input type="text" id="fYear" placeholder="2026" style="min-width:110px" autocomplete="off">
-  </div>
-  <div class="field">
-    <label for="fSearch">SEARCH METRIC</label>
-    <input type="text" id="fSearch" placeholder="customers, scan, vault…" style="min-width:220px">
-  </div>
-  <button class="btn" id="btnRun">RUN REPORT</button>
-  <div class="spacer"></div>
-  <button class="btn" id="btnCsv">EXPORT CSV</button>
+  <section class="gp-pace" id="pacePanel">
+    <div class="gp-barhead"><span>Pace</span><span class="gp-hint">Selected metrics added together</span></div>
+    <div class="gp-pace-head">
+      <div>
+        <div class="gp-label">Adding up</div>
+        <div id="selNames" class="gp-selnames"></div>
+      </div>
+      <div class="gp-goalbox">
+        <label for="goalInput">Goal for the selected metrics</label>
+        <input id="goalInput" inputmode="numeric" placeholder="e.g. 50,000" autocomplete="off">
+        <div class="gp-seg" id="modeSeg">
+          <button data-mode="range" class="on">for this range</button>
+          <button data-mode="month">per month</button>
+        </div>
+        <div class="gp-hint" id="goalHint"></div>
+      </div>
+    </div>
+    <div class="gp-hero">
+      <div class="gp-big"><span id="bigCur">—</span><span class="gp-of">of <b id="bigGoal">—</b></span></div>
+      <span id="statusPill" class="gp-pill">—</span>
+    </div>
+    <div class="gp-bar" id="bar"><div class="gp-fill" id="barFill"></div><div class="gp-mark" id="barMark"><span>should be here today</span></div></div>
+    <div class="gp-stats" id="stats"></div>
+    <div class="gp-warn" id="overlapWarn" hidden></div>
+  </section>
+
+  <section class="gp-card">
+    <div class="gp-card-head">
+      <h2 id="metricsTitle">No period loaded</h2>
+      <div class="gp-hint">Click a header to sort · Target is editable</div>
+    </div>
+    <div class="gp-quick" id="quick">
+      <span class="gp-label">Select</span>
+      <button data-pick="intake">All intake</button>
+      <button data-pick="intake-clean">Intake, no double count</button>
+      <button data-pick="clear">Clear</button>
+      <span class="sep"></span>
+      <span class="gp-label">Targets</span>
+      <button data-allmode="month">All per month</button>
+      <button data-allmode="range">All for range</button>
+      <button data-resetall="1">Reset to defaults</button>
+    </div>
+    <div class="gp-tablewrap"><table class="gp-table" id="metricTable"></table></div>
+  </section>
+
+  <section class="gp-card" id="breakCard">
+    <div class="gp-card-head"><h2>Breakdown</h2><div class="gp-bk-right"><span class="gp-hint" id="breakHint"></span>
+      <div class="gp-seg" id="viewSeg"><button data-view="share">Share</button><button data-view="chart">Bar chart</button></div></div></div>
+    <div class="gp-share" id="shareBars"></div>
+    <div class="gp-tablewrap"><table class="gp-table" id="monthTable"></table></div>
+  </section>
+  <footer class="gp-foot">Arena Club · Internal ops tool</footer>
 </div>
-
-<div class="banner" id="banner"></div>
-
-<div class="panel">
-  <div class="head">
-    <div class="t" id="panelTitle">METRICS</div>
-    <div class="h">CLICK A HEADER TO SORT · PROMO IS EDITABLE</div>
-  </div>
-  <div style="overflow-x:auto">
-    <table id="tbl">
-      <thead id="thead"></thead>
-      <tbody id="tbody"></tbody>
-    </table>
-  </div>
-  <div class="empty" id="empty" style="display:none"><b>No metrics for this period</b>Change the month or year filter, or load a report.</div>
-</div>
-
-<footer>ARENA CLUB · INTERNAL OPS TOOL</footer>
-</div>
+<div id="toast" class="gp-toast" role="status"></div>
 
 <script>
-const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
-const nf=n=>n===null||n===undefined||isNaN(n)?'—':Math.round(n).toLocaleString();
-const pf=n=>(n===null||!isFinite(n))?'—':(n*100).toFixed(1)+'%';
+(function(){
+'use strict';
 
-const now=new Date();
-let state={
-  monthText:'',
-  yearText:'',
-  period:null,
-  loading:false,
-  search:'',
-  source:'loading…',
-  sort:{key:'metric',dir:1},
-  rows:[]
-};
-
-/* ---------- filters ---------- */
-const inM=document.getElementById('fMonth'), inY=document.getElementById('fYear');
-function runReport(){
-  state.monthText=inM.value.trim();
-  state.yearText=inY.value.trim();
-  loadFromMetabase();
-}
-[inM,inY].forEach(el=>{
-  el.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();runReport()}};
-  el.onchange=runReport;
-});
-document.getElementById('btnRun').onclick=runReport;
-document.getElementById('fSearch').oninput=e=>{state.search=e.target.value.trim().toLowerCase();render()};
-
-/* ---------- data model ---------- */
-function computed(r){
-  const elapsed=r.elapsed_biz_days||0;
-  const base=r.current_total||0;
-  const promo=r.promo||0;
-  const total=base+promo;
-  const baseAvg=r.daily_avg!=null?r.daily_avg:(elapsed?base/elapsed:0);
-  const avg=promo?(elapsed?total/elapsed:baseAvg):baseAvg;
-  return {...r,base_total:base,current_total:total,daily_avg:avg,promo:r.promo??null};
-}
-function visible(){
-  let rows=state.rows.slice();
-  if(state.search) rows=rows.filter(r=>r.metric.toLowerCase().includes(state.search));
-  rows=rows.map(computed);
-  const k=state.sort.key,d=state.sort.dir;
-  rows.sort((a,b)=>{
-    if(k==='metric') return (orderIn(a.metric)-orderIn(b.metric))*d || a.metric.localeCompare(b.metric)*d;
-    const av=a[k],bv=b[k];
-    return ((av==null?-Infinity:av)-(bv==null?-Infinity:bv))*d;
-  });
-  return rows;
-}
-
-/* ---------- groups ---------- */
-const GROUPS=[
-  {name:'INTAKE',metrics:['customers','customers_raw','slab_packs','slab_packs_raw','total_cards']},
-  {name:'PIPELINE',metrics:['process','scan','vault','ship']}
+/* ---------- metric catalog ---------- */
+const METRICS = [
+  {k:'customers',      label:'Customers',        group:'Intake'},
+  {k:'customers_raw',  label:'Customers raw',    group:'Intake', inside:'customers'},
+  {k:'slab_packs',     label:'Slab packs',       group:'Intake'},
+  {k:'slab_packs_raw', label:'Slab packs raw',   group:'Intake', inside:'slab_packs'},
+  {k:'total_cards',    label:'Total cards',      group:'Intake', sumOf:['customers','slab_packs','customers_raw','slab_packs_raw']}
 ];
-const groupOf=m=>{
-  const key=String(m).toLowerCase();
-  const g=GROUPS.find(g=>g.metrics.includes(key));
-  return g?g.name:'OTHER';
-};
-const orderIn=m=>{
-  const key=String(m).toLowerCase();
-  for(const g of GROUPS){const i=g.metrics.indexOf(key); if(i>-1) return i}
-  return 999;
-};
+const isRaw = k => /_raw$/.test(k);
+const COLOR = {customers:'#39ff14', customers_raw:'#5cc8ff', slab_packs:'#ffb020', slab_packs_raw:'#c08bff', total_cards:'#ff6fae'};
+const col = k => COLOR[k] || '#e9ece8';
+const LABEL = Object.fromEntries(METRICS.map(m=>[m.k,m.k]));
 
-/* ---------- columns ---------- */
-const COLUMNS=[
-  {k:'metric',t:'METRIC'},
-  {k:'current_total',t:'CURRENT_TOTAL',f:r=>r.promo?`<span class="adj" title="base ${nf(r.base_total)} + promo ${nf(r.promo)}">${nf(r.current_total)}</span>`:nf(r.current_total)},
-  {k:'elapsed_biz_days',t:'ELAPSED_BIZ_DAYS',f:r=>nf(r.elapsed_biz_days)},
-  {k:'daily_avg',t:'DAILY_AVG',f:r=>nf(r.daily_avg)},
-  {k:'promo',t:'PROMO',input:true,ph:'add promo'}
-];
-const cols=()=>COLUMNS;
+/* ---------- dates (all YYYY-MM-DD strings, business days = Mon–Fri) ---------- */
+const TODAY = new Intl.DateTimeFormat('en-CA',{timeZone:'America/Los_Angeles'}).format(new Date());
+const pad = n => String(n).padStart(2,'0');
+const P = s => { const [y,m,d]=s.split('-').map(Number); return new Date(Date.UTC(y,m-1,d)); };
+const iso = d => d.toISOString().slice(0,10);
+const addDays = (s,n) => { const d=P(s); d.setUTCDate(d.getUTCDate()+n); return iso(d); };
+const monthStart = s => s.slice(0,8)+'01';
+const monthEnd = s => { const d=P(s); return iso(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth()+1, 0))); };
+const minS = (a,b) => a<b?a:b, maxS = (a,b) => a>b?a:b;
+const isReal = s => /^\d{4}-\d{2}-\d{2}$/.test(s) && iso(P(s))===s;
+function bizDays(a,b){
+  if(!a||!b||b<a) return 0;
+  let n=0; const d=P(a), stop=P(b);
+  while(d<=stop){ const w=d.getUTCDay(); if(w!==0&&w!==6) n++; d.setUTCDate(d.getUTCDate()+1); }
+  return n;
+}
+const MONS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtD = s => { const d=P(s); return `${MONS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`; };
+const fmtMon = s => { const d=P(s); return `${MONS[d.getUTCMonth()]} ${d.getUTCFullYear()}`; };
 
-/* ---------- render ---------- */
-function periodLabel(){
-  if(state.loading) return 'RUNNING QUESTION '+QUESTION_ID+'…';
-  if(state.period){
-    const m=/^(\d{4})-(\d{2})$/.exec(state.period);
-    return m?MONTHS[+m[2]-1].toUpperCase()+' '+m[1]:state.period.toUpperCase();
+function rangeStats(start,end){
+  const total=bizDays(start,end);
+  const elapsed = start>TODAY ? 0 : bizDays(start, minS(TODAY,end));
+  const months=[];
+  let m=monthStart(start);
+  while(m<=end && months.length<40){
+    const ms=maxS(start,m), me=minS(end,monthEnd(m));
+    const mb=bizDays(m,monthEnd(m)), rb=bizDays(ms,me);
+    const eb = ms>TODAY ? 0 : bizDays(ms, minS(TODAY,me));
+    months.push({mon:m, ms, me, mb, rb, eb, full: ms===m && me===monthEnd(m)});
+    m=addDays(monthEnd(m),1);
   }
-  return 'NO PERIOD LOADED';
+  const monthsEq = months.reduce((a,x)=>a+(x.mb?x.rb/x.mb:0),0);
+  return {start,end,total,elapsed,remaining:total-elapsed,months,monthsEq};
 }
-function render(){
-  const rows=visible();
-  document.getElementById('mCount').textContent=rows.length;
-  document.getElementById('mSource').textContent=state.source;
-  document.getElementById('panelTitle').textContent=periodLabel();
 
-  // head
-  document.getElementById('thead').innerHTML='<tr>'+cols().map(c=>
-    `<th data-k="${c.k}" class="${state.sort.key===c.k?'sorted':''}">${c.t}${state.sort.key===c.k?(state.sort.dir===1?' ▲':' ▼'):''}</th>`).join('')+'</tr>';
-  document.querySelectorAll('#thead th').forEach(th=>th.onclick=()=>{
-    const k=th.dataset.k;
-    state.sort = state.sort.key===k?{key:k,dir:-state.sort.dir}:{key:k,dir:k==='metric'?1:-1};
-    render();
+/* ---------- range text parser ---------- */
+function parseRange(txt){
+  const t=(txt||'').toLowerCase().trim().replace(/\s+/g,' ');
+  if(!t) return null;
+  const cy=+TODAY.slice(0,4), cm=+TODAY.slice(5,7);
+  const yM=t.match(/\b(20\d{2})\b/); const y=yM?+yM[1]:cy;
+  const order=(a,b)=> isReal(a)&&isReal(b) ? (a<=b?[a,b]:[b,a]) : null;
+
+  const isoD=t.match(/\d{4}-\d{2}-\d{2}/g);
+  if(isoD&&isoD.length>=2) return order(isoD[0],isoD[1]);
+  const sl=[...t.matchAll(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/g)];
+  const slD=x=>{ let yy=x[3]?+x[3]:y; if(yy<100) yy+=2000; return `${yy}-${pad(x[1])}-${pad(x[2])}`; };
+  if(sl.length>=2) return order(slD(sl[0]),slD(sl[1]));
+  if(sl.length===1){ const s=slD(sl[0]); return isReal(s)?[s,maxS(s,TODAY)]:null; }
+  if(isoD&&isoD.length===1) return [isoD[0], maxS(isoD[0],TODAY)];
+
+  if(/\b(this|current) month\b|\bmtd\b/.test(t)) return [monthStart(TODAY),monthEnd(TODAY)];
+  if(/\b(last|previous|prior) month\b/.test(t)){ const s=monthStart(addDays(monthStart(TODAY),-1)); return [s,monthEnd(s)]; }
+  if(/\bytd\b|year to date/.test(t)) return [`${cy}-01-01`, monthEnd(TODAY)];
+  if(/\b(this|current) quarter\b|\bqtd\b/.test(t)){ const q=Math.floor((cm-1)/3); const s=`${cy}-${pad(q*3+1)}-01`; return [s, monthEnd(`${cy}-${pad(q*3+3)}-01`)]; }
+  const q=t.match(/\bq([1-4])\b|\b([1-4])q\b/);
+  if(q){ const n=+(q[1]||q[2]); const s=`${y}-${pad((n-1)*3+1)}-01`; return [s, monthEnd(`${y}-${pad(n*3)}-01`)]; }
+  const h=t.match(/\bh([12])\b/);
+  if(h) return h[1]==='1' ? [`${y}-01-01`,`${y}-06-30`] : [`${y}-07-01`,`${y}-12-31`];
+  if(/\b(full )?year\b/.test(t) && yM) return [`${y}-01-01`,`${y}-12-31`];
+
+  const names=[...t.matchAll(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?/g)]
+    .map(x=>MONS.map(s=>s.toLowerCase()).indexOf(x[1])+1);
+  if(names.length){
+    const a=names[0], b=names[names.length-1];
+    const yb = b<a ? y+1 : y;
+    return [`${y}-${pad(a)}-01`, monthEnd(`${yb}-${pad(b)}-01`)];
+  }
+  const ym=t.match(/\b(20\d{2})-(\d{1,2})\b/);
+  if(ym){ const s=`${ym[1]}-${pad(ym[2])}-01`; return isReal(s)?[s,monthEnd(s)]:null; }
+  return null;
+}
+
+/* ---------- state & storage ---------- */
+const LS = {
+  get(k,d){ try{ const v=localStorage.getItem('gp1.'+k); return v==null?d:JSON.parse(v);}catch(e){return d;} },
+  set(k,v){ try{ localStorage.setItem('gp1.'+k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem('gp1.'+k);}catch(e){} }
+};
+const S = {
+  start:null, end:null, R:null, by:{}, demo:false, monthData:null, req:0,
+  selected:new Set(LS.get('sel',['customers'])),
+  mode:LS.get('mode','range'),
+  sort:{col:'metric',dir:1}
+};
+const num = v => (v===null||v===undefined||v==='') ? null : (isNaN(+v)?null:+v);
+const fmt = n => n==null||!isFinite(n) ? '—' : Math.round(n).toLocaleString('en-US');
+const fmtS = n => n==null||!isFinite(n) ? '—' : (n>=0?'+':'−')+Math.abs(Math.round(n)).toLocaleString('en-US');
+const pct = n => n==null||!isFinite(n) ? '—' : (n*100).toFixed(n<0.1?1:0)+'%';
+const parseNum = s => { const c=String(s||'').replace(/[^0-9.]/g,''); return c?+c:null; };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const goalKey = () => `goal.${S.start}_${S.end}.${S.mode}`;
+const ovKey = k => `t2.${k}`;           // per-metric target value
+const rmKey = k => `tm.${k}`;           // per-metric target mode: 'month' | 'range'
+const rowMode = k => LS.get(rmKey(k), 'month');
+const getOv = k => num(LS.get(ovKey(k), null));
+
+/* ---------- pace math ---------- */
+// plan = {goal, expected} for the whole range
+function planFromValue(v, mode){
+  const R=S.R; mode=mode||S.mode;
+  if(mode==='month'){
+    let g=0,x=0; for(const m of R.months){ if(!m.mb) continue; g+=v*m.rb/m.mb; x+=v*m.eb/m.mb; }
+    return {goal:g, expected:x};
+  }
+  return {goal:v, expected: R.total ? v*R.elapsed/R.total : 0};
+}
+function metricPlan(k){
+  const ov=getOv(k);
+  if(ov!=null) return {...planFromValue(ov, rowMode(k)), src:'custom'};
+  const row=S.by[k]; if(!row) return {goal:null,expected:null};
+  const g=num(row.target);
+  if(g==null) return {goal:null,expected:null};
+  return {goal:g, expected:num(row.expected_by_now) ?? (S.R.total?g*S.R.elapsed/S.R.total:0), src:'default'};
+}
+// share of a metric's goal that falls in one month segment
+function metricMonthPlan(k,m){
+  const R=S.R, ov=getOv(k), row=S.by[k];
+  let g=null;
+  if(ov!=null) g = rowMode(k)==='month' ? (m.mb?ov*m.rb/m.mb:0) : (R.total?ov*m.rb/R.total:0);
+  else if(row && num(row.target)!=null){
+    const T=num(row.target);
+    const daily = String(row.basis||row.target_basis||'').toLowerCase().startsWith('daily');
+    g = daily ? (R.total?T*m.rb/R.total:0) : (R.monthsEq&&m.mb ? (T/R.monthsEq)*m.rb/m.mb : 0);
+  }
+  if(g==null) return {goal:null,expected:null};
+  return {goal:g, expected: m.rb? g*m.eb/m.rb : 0};
+}
+function defaultMonthly(k){ // placeholder when typing per-month targets
+  const row=S.by[k]; const T=num(row&&row.target);
+  return T==null||!S.R.monthsEq ? null : T/S.R.monthsEq;
+}
+function pace(cur, plan, R){
+  R=R||S.R;
+  const out={cur, goal:plan.goal, expected:plan.expected, status:'none', label:'No target'};
+  if(plan.goal==null||plan.goal<=0) return out;
+  out.pctGoal = cur/plan.goal;
+  out.gap = cur - plan.expected;
+  out.daily = R.elapsed ? cur/R.elapsed : null;
+  out.projected = R.elapsed ? cur/R.elapsed*R.total : null;
+  out.needed = R.remaining>0 ? Math.max(plan.goal-cur,0)/R.remaining : null;
+  out.ratio = plan.expected>0 ? cur/plan.expected : null;
+  if(cur>=plan.goal){ out.status='hit'; out.label='Goal hit'; }
+  else if(R.elapsed===0){ out.status='notstarted'; out.label='Not started'; }
+  else if(R.remaining===0 && R.end<TODAY){ out.status='missed'; out.label='Missed'; }
+  else if(out.ratio>=1.05){ out.status='ahead'; out.label='Ahead'; }
+  else if(out.ratio>=1){ out.status='onpace'; out.label='On pace'; }
+  else if(out.ratio>=0.9){ out.status='risk'; out.label='Slightly behind'; }
+  else { out.status='behind'; out.label='Behind'; }
+  return out;
+}
+const pill = p => `<span class="gp-pill ${p.status}">${p.label}</span>`;
+
+/* ---------- demo data (mirrors the SQL target logic) ---------- */
+const DEMO_AVG={customers:632,customers_raw:593,slab_packs:2243,slab_packs_raw:430,total_cards:2874,};
+const DEMO_T={customers:[9700,'monthly'],slab_packs:[148500,'monthly'],total_cards:[158500,'monthly'],customers_raw:[null,'monthly'],slab_packs_raw:[null,'monthly']};
+function demoRows(s,e){
+  const R=rangeStats(s,e);
+  return METRICS.map((m,i)=>{
+    const [t,basis]=DEMO_T[m.k];
+    let target=null, exp=null;
+    if(t!=null){
+      target=0; exp=0;
+      for(const x of R.months){ const per = basis==='daily'?t:(x.mb?t/x.mb:0); target+=per*x.rb; exp+=per*x.eb; }
+    }
+    return {metric:m.k, basis, current_total:Math.round(DEMO_AVG[m.k]*R.elapsed*(0.9+((i*37)%20)/100)),
+      target: target==null?null:Math.round(target), expected_by_now: exp==null?null:Math.round(exp),
+      elapsed_biz_days:R.elapsed, total_biz_days:R.total};
   });
-
-  // body — grouped with a spacer band between sections
-  const tb=document.getElementById('tbody');
-  const order=[...GROUPS.map(g=>g.name),'OTHER'];
-  let html='';
-  order.forEach(name=>{
-    const set=rows.filter(r=>groupOf(r.metric)===name);
-    if(!set.length) return;
-    html+=`<tr class="group"><td>${name}</td><td colspan="${cols().length-1}">${set.length} metrics</td></tr>`;
-    html+=set.map(r=>'<tr>'+cols().map(c=>{
-      if(c.k==='metric') return `<td class="metric">${r.metric}</td>`;
-      if(c.input) return `<td><input class="numedit" type="number" inputmode="numeric" data-metric="${r.metric}" data-field="${c.k}" value="${r[c.k]==null?'':r[c.k]}" placeholder="${c.ph}"></td>`;
-      return `<td>${c.f(r)}</td>`;
-    }).join('')+'</tr>').join('');
-    html+=`<tr class="gap"><td colspan="${cols().length}"></td></tr>`;
-  });
-  tb.innerHTML=html;
-
-  tb.querySelectorAll('input.numedit').forEach(inp=>{
-    inp.onchange=e=>{
-      const m=e.target.dataset.metric, f=e.target.dataset.field;
-      const v=e.target.value===''?null:+e.target.value;
-      state.rows.forEach(r=>{
-        if(r.metric===m&&r.month===state.month&&r.year===state.year) r[f]=(v==null||isNaN(v))?null:v;
-      });
-      render();
-    };
-    inp.onkeydown=e=>{if(e.key==='Enter')e.target.blur()};
-  });
-
-  const emptyEl=document.getElementById('empty');
-  emptyEl.innerHTML=state.loading
-    ? '<b>Running question '+QUESTION_ID+'</b>The Snowflake query behind this report takes a few seconds.'
-    : '<b>No metrics loaded</b>Enter a month and year, then run the report.';
-  emptyEl.style.display=rows.length?'none':'block';
-  document.getElementById('tbl').style.display=rows.length?'table':'none';
 }
 
-/* ---------- loading ---------- */
-const QUESTION_ID=30328;
-
-function normalize(raw){
-  return raw.map(src=>{
-    const o={};
-    Object.keys(src||{}).forEach(k=>o[String(k).toLowerCase().trim().replace(/\s+/g,'_')]=src[k]);
-    const num=v=>{if(v===undefined||v===null||v==='')return null;const n=+String(v).replace(/[, $%]/g,'');return isNaN(n)?null:n};
-    const metric=o.metric||o.name;
-    if(!metric) return null;
-    const elapsed=num(o.elapsed_biz_days)??num(o.elapsed_business_days)??0;
-    const total=num(o.current_total)??num(o.total)??0;
-    return {
-      metric:String(metric),
-      current_total:total,
-      elapsed_biz_days:elapsed,
-      daily_avg:num(o.daily_avg)??(elapsed?total/elapsed:0),
-      promo:num(o.promo)??num(o.promo_add)??null,
-      report_month:o.report_month?String(o.report_month):null
-    };
-  }).filter(Boolean);
+/* ---------- data loading ---------- */
+async function fetchRange(s,e){
+  if(S.demo) return demoRows(s,e);
+  let r;
+  try{ r=await fetch(`/api/report?start=${s}&end=${e}`); }
+  catch(err){ return {fallback:true}; }
+  if(r.status===404 || location.protocol==='file:') return {fallback:true};
+  const j=await r.json().catch(()=>({error:'Bad response from /api/report'}));
+  if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
+  if(s===S.start&&e===S.end){ S.source=j.source; if(j.card_error) console.warn('Question 30328 failed, used embedded SQL:', j.card_error); }
+  return j.rows;
 }
-function loadRows(rows,source){
-  state.rows=JSON.parse(JSON.stringify(rows)); state.source=source; render();
-}
-
-/* pulls question 30328 through /api/metabase */
-let fetchToken=0;
-function banner(msg){
-  const b=document.getElementById('banner');
-  if(!msg){b.classList.remove('show');b.innerHTML='';return}
-  b.innerHTML=`<b>Could not load question ${QUESTION_ID}</b>${msg}<br><button id="btnRetry">RETRY</button>`;
-  b.classList.add('show');
-  document.getElementById('btnRetry').onclick=loadFromMetabase;
-}
-async function loadFromMetabase(){
-  const token=++fetchToken;
-  banner('');
-  state.loading=true; state.rows=[]; state.period=null;
-  state.source='running question '+QUESTION_ID+'…';
-  const runBtn=document.getElementById('btnRun');
-  runBtn.textContent='RUNNING…'; runBtn.disabled=true; runBtn.classList.add('running');
-  render();
-  const ctrl=new AbortController();
-  const timer=setTimeout(()=>ctrl.abort(),58000);
+async function load(){
+  if(!S.start||!S.end) return;
+  const id=++S.req;
+  S.R=rangeStats(S.start,S.end);
+  history.replaceState(null,'',`?start=${S.start}&end=${S.end}${S.demo?'&demo=1':''}`);
+  document.body.classList.add('gp-loading');
+  renderRangeLine('Loading…');
   try{
-    const qs=new URLSearchParams({id:QUESTION_ID});
-    if(state.monthText) qs.set('report_month',state.monthText);
-    if(state.yearText) qs.set('report_year',state.yearText);
-    const res=await fetch('/api/metabase?'+qs.toString(),{signal:ctrl.signal});
-    const ct=res.headers.get('content-type')||'';
-    if(!ct.includes('json')){
-      throw new Error('The <code>/api/metabase</code> route did not respond with JSON. If you opened this file directly, or deployed without the <code>api/</code> folder, there is no server function to call.');
-    }
-    const body=await res.json();
-    if(token!==fetchToken) return;
-    if(!res.ok) throw new Error(String(body.error||('server returned '+res.status)));
-    const raw=Array.isArray(body)?body:(body.rows||body.data||[]);
-    if(body&&body.warning) banner(String(body.warning));
-    if(!raw.length) throw new Error('The question ran but returned zero rows.');
-    const rows=normalize(raw);
-    if(!rows.length){
-      throw new Error('The question returned '+raw.length+' rows, but none had a metric column. Columns received: <code>'+Object.keys(raw[0]).join(', ')+'</code>');
-    }
-    state.period=rows.find(r=>r.report_month)?.report_month||null;
-    state.loading=false;
-    loadRows(rows,'question '+QUESTION_ID);
-  }catch(e){
-    if(token!==fetchToken) return;
-    state.loading=false; state.rows=[]; state.source='no data'; render();
-    banner(e.name==='AbortError'
-      ? 'The question did not finish within 58 seconds — the serverless function tops out at 60. Check the function log in Vercel; if it says the task timed out, the query itself is the bottleneck.'
-      : (e.message||'Request failed.'));
-  }finally{
-    clearTimeout(timer);
-    const b=document.getElementById('btnRun');
-    b.textContent='RUN REPORT'; b.disabled=false; b.classList.remove('running');
-    if(token===fetchToken&&state.loading){state.loading=false;render()}
-  }
+    let rows=await fetchRange(S.start,S.end);
+    if(rows&&rows.fallback){ S.demo=true; $('demoBanner').hidden=false; rows=demoRows(S.start,S.end); toast('API unreachable here, showing demo data'); }
+    if(id!==S.req) return;
+    S.by=Object.fromEntries(rows.map(r=>[String(r.metric).toLowerCase(), r]));
+    S.monthData=null;
+    renderAll();
+    loadMonths(id);
+  }catch(err){
+    if(id!==S.req) return;
+    toast(err.message,true);
+    renderRangeLine('Load failed');
+  }finally{ if(id===S.req) document.body.classList.remove('gp-loading'); }
+}
+async function loadMonths(id){
+  const segs=S.R.months;
+  if(segs.length<2){ renderBreakdown(); return; }
+  if(segs.length>12){ $('breakHint').textContent='Month breakdown is limited to 12 months.'; renderBreakdown(); return; }
+  $('breakHint').textContent='Loading month breakdown…';
+  try{
+    const res=await Promise.all(segs.map(m=> m.ms>TODAY ? Promise.resolve(null) : fetchRange(m.ms,m.me)));
+    if(id!==S.req) return;
+    S.monthData=segs.map((m,i)=>({m, by: res[i]&&!res[i].fallback ? Object.fromEntries(res[i].map(r=>[String(r.metric).toLowerCase(),r])) : null}));
+    $('breakHint').textContent='';
+  }catch(err){ if(id===S.req){ $('breakHint').textContent='Month breakdown failed: '+err.message; } }
+  if(id===S.req) renderBreakdown();
 }
 
-document.getElementById('btnCsv').onclick=()=>{
-  const rows=visible(); if(!rows.length) return;
-  const head=cols().map(c=>c.t);
-  const line=r=>cols().map(c=>{
-    if(c.k==='metric')return r.metric;
-    if(c.input)return r[c.k]==null?'':r[c.k];
-    if(c.k==='current_total')return r.current_total;
-    const v=c.f(r); return v==='—'?'':v.replace(/,/g,'');
-  }).join(',');
-  const csv=[head.join(','),...rows.map(line)].join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download=`target-goals-${state.period||'report'}.csv`;
-  a.click();
-};
+/* ---------- rendering ---------- */
+function renderRangeLine(extra){
+  const R=S.R; if(!R) return;
+  const n=METRICS.filter(m=>S.by&&S.by[m.k]).length;
+  const src=S.demo?'demo data':(S.source||'');
+  $('rangeLine').innerHTML = `metrics ${n}${src?' · '+esc(src):''} · ${fmtD(R.start)} – ${fmtD(R.end)} · ${R.elapsed} of ${R.total} biz days${extra?' · '+esc(extra.toLowerCase()):''}`;
+}
+const exKey = k => `x.${S.start}_${S.end}.${k}`;   // extra cards, saved per range
+const getExtra = k => num(LS.get(exKey(k), null)) || 0;
+function baseOf(k){ const r=S.by[k]; return r?(num(r.current_total)||0):0; }
+function curOf(k){ return baseOf(k) + getExtra(k); }
 
-loadFromMetabase();
+function renderAll(){
+  renderRangeLine();
+  $('startDate').value=S.start; $('endDate').value=S.end;
+  document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===S.mode));
+  const g=LS.get(goalKey(),null);
+  $('goalInput').value = g!=null ? fmt(g) : '';
+  $('metricsTitle').textContent = `${fmtD(S.start)} – ${fmtD(S.end)}`;
+  renderTable();
+  renderPace();
+  renderBreakdown();
+}
+
+const COLS=[
+  {c:'metric',t:'Metric',l:1},{c:'cur',t:'Current_total'},{c:'el',t:'Elapsed_biz_days'},{c:'avg',t:'Daily_avg'},
+  {c:'pct',t:'Pace'},{c:'tgt',t:'Target'},{c:'extra',t:'Extra cards'}
+];
+function sortVal(k,c){
+  const R=S.R, cur=curOf(k), p=pace(cur, metricPlan(k));
+  switch(c){
+    case 'metric': return METRICS.findIndex(m=>m.k===k);
+    case 'cur': return cur;
+    case 'extra': return getExtra(k);
+    case 'el': return R.elapsed;
+    case 'avg': return R.elapsed?cur/R.elapsed:null;
+    case 'tgt': return p.goal;
+    case 'exp': return p.expected;
+    case 'gap': return p.gap;
+    case 'proj': return p.projected;
+    case 'pct': return p.pctGoal;
+  }
+  return null;
+}
+function renderTable(){
+  const R=S.R, so=S.sort;
+  const head = `<thead><tr>${COLS.map(x=>`<th class="${x.l?'l':''} ${so.col===x.c?'on':''} ${x.ns?'':'gp-sortable'}" ${x.ns?'':`data-sort="${x.c}"`}>${x.t}${so.col===x.c?(so.dir>0?' ▲':' ▼'):''}</th>`).join('')}</tr></thead>`;
+  let body='<tbody>';
+  for(const grp of ['Intake']){
+    const ms=METRICS.filter(m=>m.group===grp && S.by[m.k]);
+    if(!ms.length) continue;
+    ms.sort((a,b)=>{ const va=sortVal(a.k,so.col), vb=sortVal(b.k,so.col);
+      if(va==null&&vb==null) return 0; if(va==null) return 1; if(vb==null) return -1; return (va-vb)*so.dir; });
+    const n=ms.filter(m=>S.selected.has(m.k)).length;
+    body+=`<tr class="gp-group" data-group="${grp}"><td colspan="6"><label class="gp-grpl"><input type="checkbox" class="gp-cb" data-grp="${grp}" ${n===ms.length?'checked':''} data-ind="${n>0&&n<ms.length?1:0}" aria-label="Select all ${grp.toLowerCase()}">${grp}</label></td><td class="gp-gcount">${ms.length} metrics${n?` · ${n} selected`:''}</td></tr>`;
+    for(const m of ms){
+      const ov=getOv(m.k);
+      const rm = rowMode(m.k);
+      const ph = rm==='month' ? defaultMonthly(m.k) : num(S.by[m.k].target);
+      const note = m.inside ? `<span class="gp-note">inside ${m.inside}</span>` : (m.sumOf?'<span class="gp-note">customers + slab_packs</span>':'');
+      body+=`<tr class="gp-row ${m.inside?'raw':''} ${S.selected.has(m.k)?'sel':''}" data-k="${m.k}">
+        <td><label class="gp-mname"><input type="checkbox" class="gp-cb" data-sel="${m.k}" ${S.selected.has(m.k)?'checked':''}><span class="gp-sw" style="background:${col(m.k)}"></span><span ${isRaw(m.k)?`style="color:${col(m.k)}"`:''}>${m.k}</span>${note}</label></td>
+        <td data-c="cur"></td>
+        <td>${R.elapsed}</td>
+        <td data-c="avg">${R.elapsed?fmt(curOf(m.k)/R.elapsed):'—'}</td>
+        <td data-c="st"></td>
+        <td><div class="gp-tcell"><input class="gp-tin ${ov!=null?'ov':''}" data-t="${m.k}" inputmode="numeric" value="${ov!=null?fmt(ov):''}" placeholder="${ph!=null?fmt(ph):'add target'}" aria-label="${m.k} target">
+          <button class="gp-rtog" data-rm="${rm==='month'?'range':'month'}" data-k="${m.k}" title="${rm==='month'?'Monthly target. Click to switch to a whole-range target':'Whole-range target. Click to switch to monthly'}">${rm==='month'?'/mo':'range'}</button></div>
+          <div class="gp-tsub" data-c="tsub"></div></td>
+        <td><input class="gp-tin gp-xin ${getExtra(m.k)?'ov':''}" data-x="${m.k}" inputmode="numeric" value="${getExtra(m.k)?fmt(getExtra(m.k)):''}" placeholder="add extra" aria-label="${m.k} extra cards"></td>
+      </tr>`;
+    }
+    body+=`<tr class="gp-spacer"><td colspan="7"></td></tr>`;
+  }
+  body+='</tbody>';
+  $('metricTable').innerHTML=head+body;
+  document.querySelectorAll('#metricTable [data-ind="1"]').forEach(c=>c.indeterminate=true);
+  METRICS.forEach(m=>S.by[m.k]&&updateRow(m.k));
+}
+function updateRow(k){
+  const tr=document.querySelector(`#metricTable tr[data-k="${k}"]`); if(!tr) return;
+  const p=pace(curOf(k), metricPlan(k));
+  const set=(c,h)=>{ const td=tr.querySelector(`[data-c="${c}"]`); if(td) td.innerHTML=h; };
+  const ex=getExtra(k);
+  set('cur', ex ? `${fmt(curOf(k))}<div class="gp-xsub">${fmt(baseOf(k))} + ${fmt(ex)} extra</div>` : fmt(curOf(k)));
+  set('avg', S.R.elapsed?fmt(curOf(k)/S.R.elapsed):'—');
+  set('exp', fmt(p.expected));
+  const plan=metricPlan(k), rm=rowMode(k), R=S.R;
+  set('tsub', plan.goal==null ? '' : rm==='month'
+    ? `= ${fmt(plan.goal)} for range`
+    : (R.monthsEq ? `≈ ${fmt(plan.goal/R.monthsEq)} / month` : ''));
+  set('gap', p.gap==null?'—':`<span class="${p.gap>=0?'pos':'neg'}">${fmtS(p.gap)}</span>`);
+  set('proj', p.projected==null?'—':fmt(p.projected));
+  set('pct', p.pctGoal==null?'—':pct(p.pctGoal));
+  set('st', p.status==='none'?'<span class="gp-st none">—</span>':`<span class="gp-st ${p.status}">${p.label}</span> <span class="gp-stp">${pct(p.pctGoal)}</span>`);
+  tr.classList.toggle('sel', S.selected.has(k));
+}
+
+function selection(){ return METRICS.map(m=>m.k).filter(k=>S.selected.has(k) && S.by[k]); }
+
+function renderPace(){
+  const R=S.R, sel=selection();
+  $('selNames').innerHTML = sel.length
+    ? sel.map(k=>`<button class="gp-chip" data-unsel="${k}" title="Remove">${LABEL[k]} ×</button>`).join('')
+    : '<span class="gp-empty">Nothing selected. Tick metrics in the table below.</span>';
+  const cur=sel.reduce((a,k)=>a+curOf(k),0);
+  const gv=LS.get(goalKey(),null);
+  let plan, hint='';
+  if(gv!=null){
+    plan=planFromValue(gv);
+    hint = S.mode==='month'
+      ? `${fmt(gv)} per month × ${R.monthsEq.toFixed(2)} months in range = ${fmt(plan.goal)}`
+      : `${fmt(gv)} across ${R.total} business days`;
+  } else {
+    let g=0,x=0,any=false;
+    sel.forEach(k=>{ const p=metricPlan(k); if(p.goal!=null){ g+=p.goal; x+=p.expected; any=true; } });
+    plan = any?{goal:g,expected:x}:{goal:null,expected:null};
+    hint = sel.length ? (any?'Using the sum of the selected metric targets. Type a goal to override.':'No target set. Type a goal.') : '';
+  }
+  $('goalHint').textContent=hint;
+  const p=pace(cur,plan);
+  $('bigCur').textContent=fmt(cur);
+  $('bigGoal').textContent=fmt(plan.goal);
+  $('statusPill').className='gp-pill '+p.status; $('statusPill').textContent=p.label;
+  const fill = plan.goal ? Math.min(100,cur/plan.goal*100) : 0;
+  const mark = R.total ? R.elapsed/R.total*100 : 0;
+  $('barFill').className='gp-fill '+p.status; $('barFill').style.width=fill+'%';
+  $('barMark').style.left=`calc(${mark}% - 1px)`;
+  $('barMark').hidden = !plan.goal;
+  const lab=$('barMark').querySelector('span');
+  lab.style.transform = mark<15 ? 'translateX(0)' : mark>85 ? 'translateX(-100%)' : 'translateX(-50%)';
+  lab.style.left = mark<15 ? '0' : mark>85 ? '2px' : '50%';
+
+  const stat=(k,v,s)=>`<div class="gp-stat"><div class="k">${k}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
+  $('stats').innerHTML = [
+    stat('Expected by today', fmt(p.expected), plan.goal?`${pct(R.total?R.elapsed/R.total:0)} of the range is done`:''),
+    stat('Pace gap', p.gap==null?'—':`<span class="${p.gap>=0?'pos':'neg'}">${fmtS(p.gap)}</span>`, p.ratio?`${pct(p.ratio)} of where you should be`:''),
+    stat('Daily average', R.elapsed?fmt(cur/R.elapsed):'—', `over ${R.elapsed} business days`),
+    stat('Needed per day from here', p.needed==null?'—':fmt(p.needed), R.remaining?`${R.remaining} business days left`:'range is over'),
+    stat('Projected finish', p.projected==null?'—':fmt(p.projected), p.projected&&plan.goal?`${pct(p.projected/plan.goal)} of goal at this rate`:''),
+    stat('Remaining to goal', plan.goal?fmt(Math.max(plan.goal-cur,0)):'—', plan.goal?`${pct(Math.min(1,cur/plan.goal))} done`:'')
+  ].join('');
+
+  const warns=[];
+  sel.forEach(k=>{ const m=METRICS.find(x=>x.k===k);
+    if(m.inside && S.selected.has(m.inside)) warns.push(`${m.label} is already counted inside ${LABEL[m.inside]}.`);
+    if(m.sumOf && m.sumOf.some(x=>S.selected.has(x))) warns.push(`Total cards already includes ${m.sumOf.filter(x=>S.selected.has(x)).map(x=>LABEL[x]).join(', ')}.`);
+  });
+  $('overlapWarn').hidden=!warns.length;
+  $('overlapWarn').textContent = warns.length ? 'Double counting: '+warns.join(' ') : '';
+}
+
+function niceMax(v){ if(v<=0) return 10; const p=Math.pow(10,Math.floor(Math.log10(v))); const n=v/p; return (n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10)*p; }
+const short = n => n>=1e6?(n/1e6).toFixed(n>=1e7?0:1)+'M':n>=1e3?(n/1e3).toFixed(n>=1e4?0:1)+'k':String(Math.round(n));
+function renderChart(sel){
+  const W=1000,H=330,L=60,Rp=16,T=24,B=58, iw=W-L-Rp, ih=H-T-B;
+  const legendItems=[]; let groups=[], max=0, svg='';
+  const multi = S.monthData && S.monthData.length>1;
+  if(multi){
+    const gv=LS.get(goalKey(),null);
+    groups=S.monthData.map(({m,by})=>{
+      const future=m.ms>TODAY;
+      const parts=sel.map(k=>({k,v: !future&&by&&by[k]?(num(by[k].current_total)||0):0}));
+      let g=null;
+      if(gv!=null) g = S.mode==='month' ? (m.mb?gv*m.rb/m.mb:0) : (S.R.total?gv*m.rb/S.R.total:0);
+      else sel.forEach(k=>{ const p=metricMonthPlan(k,m); if(p.goal!=null) g=(g||0)+p.goal; });
+      const tot=parts.reduce((a,b)=>a+b.v,0);
+      max=Math.max(max,tot,g||0);
+      return {label: m.full?fmtMon(m.mon):`${fmtMon(m.mon)} ${P(m.ms).getUTCDate()}–${P(m.me).getUTCDate()}`, parts, tot, goal:g, future};
+    });
+  } else {
+    groups=sel.map(k=>{ const p=pace(curOf(k),metricPlan(k)); max=Math.max(max,curOf(k),p.expected||0); return {k,label:LABEL[k],v:curOf(k),exp:p.expected}; });
+  }
+  const ymax=niceMax(max*1.08), y=v=>T+ih-(v/ymax)*ih;
+  for(let i=0;i<=4;i++){ const v=ymax*i/4, yy=y(v);
+    svg+=`<line x1="${L}" x2="${W-Rp}" y1="${yy}" y2="${yy}" stroke="#1f231f"/><text x="${L-8}" y="${yy+4}" text-anchor="end" class="gp-ax">${short(v)}</text>`; }
+  const n=groups.length||1, slot=iw/n;
+  groups.forEach((g,i)=>{
+    const cx=L+slot*i+slot/2;
+    if(multi){
+      const bw=Math.min(90,slot*0.5); let acc=0;
+      g.parts.forEach(pt=>{ if(!pt.v) return; const y0=y(acc+pt.v), hgt=y(acc)-y0;
+        svg+=`<rect x="${cx-bw/2}" y="${y0}" width="${bw}" height="${Math.max(hgt,0)}" fill="${col(pt.k)}"><title>${LABEL[pt.k]}: ${fmt(pt.v)}</title></rect>`; acc+=pt.v; });
+      if(g.goal!=null){ const gy=y(g.goal);
+        svg+=`<line x1="${cx-bw/2-8}" x2="${cx+bw/2+8}" y1="${gy}" y2="${gy}" stroke="#e9ece8" stroke-width="2" stroke-dasharray="5 4"><title>Goal share: ${fmt(g.goal)}</title></line>`;
+        svg+=`<text x="${cx+bw/2+12}" y="${gy+4}" class="gp-ax">${short(g.goal)}</text>`; }
+      svg+=`<text x="${cx}" y="${y(g.tot)-7}" text-anchor="middle" class="gp-val">${g.future?'':fmt(g.tot)}</text>`;
+      svg+=`<text x="${cx}" y="${H-B+20}" text-anchor="middle" class="gp-xl">${esc(g.label)}</text>`;
+      if(g.future) svg+=`<text x="${cx}" y="${H-B+36}" text-anchor="middle" class="gp-ax">upcoming</text>`;
+    } else {
+      const bw=Math.min(56,slot*0.3), c=col(g.k);
+      svg+=`<rect x="${cx-bw-3}" y="${y(g.v)}" width="${bw}" height="${T+ih-y(g.v)}" fill="${c}"><title>${g.label} current: ${fmt(g.v)}</title></rect>`;
+      svg+=`<text x="${cx-bw/2-3}" y="${y(g.v)-7}" text-anchor="middle" class="gp-val">${short(g.v)}</text>`;
+      if(g.exp!=null){
+        svg+=`<rect x="${cx+3}" y="${y(g.exp)}" width="${bw}" height="${T+ih-y(g.exp)}" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="4 3"><title>${g.label} expected by today: ${fmt(g.exp)}</title></rect>`;
+        svg+=`<text x="${cx+bw/2+3}" y="${y(g.exp)-7}" text-anchor="middle" class="gp-ax">${short(g.exp)}</text>`;
+      }
+      svg+=`<text x="${cx}" y="${H-B+20}" text-anchor="middle" class="gp-xl" fill="${c}">${esc(g.label)}</text>`;
+    }
+  });
+  const legend = multi
+    ? sel.map(k=>`<span><i style="background:${col(k)}"></i>${LABEL[k]}</span>`).join('')+'<span><i class="dash"></i>goal share</span>'
+    : '<span><i style="background:#e9ece8"></i>current total</span><span><i class="ghost"></i>expected by today</span>';
+  return `<div class="gp-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Bar chart of selected metrics">${svg}</svg><div class="gp-legend">${legend}</div></div>`;
+}
+function renderBreakdown(){
+  const sel=selection(), R=S.R;
+  const cur=sel.reduce((a,k)=>a+curOf(k),0);
+  if(!sel.length){ $('shareBars').innerHTML='<div class="gp-empty">Select metrics to see how they break down.</div>'; $('monthTable').innerHTML=''; return; }
+  const sorted=[...sel].sort((a,b)=>curOf(b)-curOf(a));
+  const view=LS.get('view','share');
+  document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.view===view));
+  if(view==='chart'){ $('shareBars').innerHTML=renderChart(sel); }
+  else $('shareBars').innerHTML = `<div class="gp-label">Share of the ${fmt(cur)} total</div>` + sorted.map(k=>{
+    const v=curOf(k), s=cur?v/cur:0;
+    return `<div class="gp-sharerow"><div><span class="gp-sw" style="background:${col(k)}"></span>${LABEL[k]}</div><div class="t"><i style="width:${s*100}%;background:${col(k)}"></i></div><div class="n"><b>${fmt(v)}</b> &nbsp;${pct(s)}</div></div>`;
+  }).join('');
+
+  if(!S.monthData){ $('monthTable').innerHTML = R.months.length<2 ? '' : ''; return; }
+  const gv=LS.get(goalKey(),null);
+  const head=`<thead><tr><th class="l">Month</th>${sel.map(k=>`<th style="color:${col(k)}">${LABEL[k]}</th>`).join('')}<th>Selected total</th><th>Goal share</th><th>Expected by today</th><th>Gap</th><th>Status</th></tr></thead>`;
+  let rows='', tg=0, tx=0; const tot={}; let tcur=0;
+  for(const {m,by} of S.monthData){
+    const vals=sel.map(k=> by&&by[k] ? (num(by[k].current_total)||0) : 0);
+    const sum=vals.reduce((a,b)=>a+b,0);
+    sel.forEach((k,i)=>tot[k]=(tot[k]||0)+vals[i]); tcur+=sum;
+    let g=null,x=null;
+    if(gv!=null){
+      g = S.mode==='month' ? (m.mb?gv*m.rb/m.mb:0) : (R.total?gv*m.rb/R.total:0);
+      x = m.rb ? g*m.eb/m.rb : 0;
+    } else {
+      sel.forEach(k=>{ const p=metricMonthPlan(k,m); if(p.goal!=null){ g=(g||0)+p.goal; x=(x||0)+p.expected; } });
+    }
+    if(g!=null){ tg+=g; tx+=x; }
+    const mR={elapsed:m.eb,total:m.rb,remaining:m.rb-m.eb,end:m.me};
+    let p = pace(sum,{goal:g,expected:x},mR);
+    if(m.ms>TODAY) p={status:'upcoming',label:'Upcoming'};
+    const label = m.full ? fmtMon(m.mon) : `${fmtMon(m.mon)} <span class="gp-note">${P(m.ms).getUTCDate()}–${P(m.me).getUTCDate()}</span>`;
+    rows+=`<tr class="gp-row"><td>${label}</td>${vals.map(v=>`<td>${m.ms>TODAY?'—':fmt(v)}</td>`).join('')}
+      <td><b>${m.ms>TODAY?'—':fmt(sum)}</b></td><td>${fmt(g)}</td><td>${m.ms>TODAY?'—':fmt(x)}</td>
+      <td>${m.ms>TODAY||g==null?'—':`<span class="${sum-x>=0?'pos':'neg'}">${fmtS(sum-x)}</span>`}</td><td><span class="gp-st ${p.status}">${p.label}</span></td></tr>`;
+  }
+  const exs=sel.map(k=>getExtra(k)), exSum=exs.reduce((a,b)=>a+b,0);
+  if(exSum){ sel.forEach((k,i)=>tot[k]=(tot[k]||0)+exs[i]); tcur+=exSum;
+    rows+=`<tr class="gp-row gp-xrow"><td>Extra cards</td>${exs.map(v=>`<td>${v?fmt(v):'—'}</td>`).join('')}<td><b>${fmt(exSum)}</b></td><td>—</td><td>—</td><td>—</td><td></td></tr>`; }
+  rows+=`<tr class="gp-total"><td>Total</td>${sel.map(k=>`<td>${fmt(tot[k])}</td>`).join('')}<td>${fmt(tcur)}</td><td>${fmt(tg||null)}</td><td>${fmt(tx||null)}</td>
+    <td>${tg?`<span class="${tcur-tx>=0?'pos':'neg'}">${fmtS(tcur-tx)}</span>`:'—'}</td><td></td></tr>`;
+  $('monthTable').innerHTML=head+'<tbody>'+rows+'</tbody>';
+}
+
+/* ---------- events ---------- */
+function setRange(s,e,{reload=true}={}){
+  if(!isReal(s)||!isReal(e)) return;
+  if(s>e) [s,e]=[e,s];
+  S.start=s; S.end=e;
+  if(reload) load();
+}
+const rangeText=$('rangeText');
+rangeText.addEventListener('input',()=>{
+  const r=parseRange(rangeText.value);
+  const h=$('rangeHint');
+  if(!rangeText.value.trim()){ h.textContent=''; h.className='gp-hint'; return; }
+  if(r){ h.textContent=`${fmtD(r[0])} – ${fmtD(r[1])} · press Enter`; h.className='gp-hint ok'; }
+  else { h.textContent="Can't read that. Try oct - dec, q4, sept 2026 or 10/1 - 11/15."; h.className='gp-hint bad'; }
+});
+rangeText.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const r=parseRange(rangeText.value); if(r) setRange(r[0],r[1]); else toast("Can't read that range",true); }});
+$('loadBtn').addEventListener('click',()=>{
+  const r=rangeText.value.trim()?parseRange(rangeText.value):null;
+  if(r) return setRange(r[0],r[1]);
+  setRange($('startDate').value,$('endDate').value);
+});
+['startDate','endDate'].forEach(id=>$(id).addEventListener('change',()=>{
+  rangeText.value=''; $('rangeHint').textContent='';
+  const s=$('startDate').value, e=$('endDate').value;
+  if(isReal(s)&&isReal(e)) setRange(s,e);
+}));
+$('presets').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  rangeText.value=b.dataset.q; rangeText.dispatchEvent(new Event('input'));
+  const r=parseRange(b.dataset.q); if(r) setRange(r[0],r[1]);
+});
+$('modeSeg').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b||b.dataset.mode===S.mode) return;
+  S.mode=b.dataset.mode; LS.set('mode',S.mode); renderAll();
+});
+$('goalInput').addEventListener('input',e=>{
+  const v=parseNum(e.target.value);
+  if(v==null) LS.del(goalKey()); else LS.set(goalKey(),v);
+  renderPace(); renderBreakdown();
+});
+$('goalInput').addEventListener('blur',e=>{ const v=parseNum(e.target.value); e.target.value = v==null?'':fmt(v); });
+
+$('metricTable').addEventListener('change',e=>{
+  const grp=e.target.dataset.grp;
+  if(grp){ keysOf(grp).forEach(k=> e.target.checked?S.selected.add(k):S.selected.delete(k)); afterSel(); return; }
+  const k=e.target.dataset.sel; if(!k) return;
+  e.target.checked?S.selected.add(k):S.selected.delete(k);
+  afterSel();
+});
+function afterSel(){ LS.set('sel',[...S.selected]); renderTable(); renderPace(); renderBreakdown(); }
+const keysOf = grp => METRICS.filter(m=>m.group===grp && S.by[m.k]).map(m=>m.k);
+$('metricTable').addEventListener('click',e=>{
+  const th=e.target.closest('th[data-sort]');
+  if(th){ const c=th.dataset.sort; S.sort = S.sort.col===c ? {col:c,dir:-S.sort.dir} : {col:c,dir:c==='metric'?1:-1}; renderTable(); return; }
+  const rb=e.target.closest('[data-rm]');
+  if(rb){ LS.set(rmKey(rb.dataset.k), rb.dataset.rm); renderTable(); renderPace(); renderBreakdown(); return; }
+});
+$('quick').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  const pk=b.dataset.pick;
+  if(pk){
+    if(pk==='clear') S.selected.clear();
+    else if(pk==='intake') keysOf('Intake').forEach(k=>S.selected.add(k));
+    else if(pk==='intake-clean'){ keysOf('Intake').forEach(k=>S.selected.delete(k)); ['customers','slab_packs'].forEach(k=>S.by[k]&&S.selected.add(k)); }
+    afterSel(); return;
+  }
+  if(b.dataset.allmode){ METRICS.forEach(m=>LS.set(rmKey(m.k), b.dataset.allmode)); renderTable(); renderPace(); renderBreakdown(); toast(b.dataset.allmode==='month'?'All targets are per month':'All targets are for the whole range'); return; }
+  if(b.dataset.resetall){ METRICS.forEach(m=>LS.del(ovKey(m.k))); renderTable(); renderPace(); renderBreakdown(); toast('Targets reset to defaults'); }
+});
+$('metricTable').addEventListener('input',e=>{
+  const xk=e.target.dataset.x;
+  if(xk){ const v=parseNum(e.target.value); if(v==null||v===0) LS.del(exKey(xk)); else LS.set(exKey(xk),v);
+    e.target.classList.toggle('ov',!!v); updateRow(xk); renderPace(); renderBreakdown(); return; }
+  const k=e.target.dataset.t; if(!k) return;
+  const v=parseNum(e.target.value);
+  if(v==null) LS.del(ovKey(k)); else LS.set(ovKey(k),v);
+  e.target.classList.toggle('ov',v!=null);
+  updateRow(k); renderPace(); renderBreakdown();
+});
+$('metricTable').addEventListener('focusout',e=>{
+  if(!e.target.dataset.t && !e.target.dataset.x) return; const v=parseNum(e.target.value); e.target.value=v==null?'':fmt(v);
+});
+$('selNames').addEventListener('click',e=>{
+  const k=e.target.closest('[data-unsel]')?.dataset.unsel; if(!k) return;
+  S.selected.delete(k); LS.set('sel',[...S.selected]);
+  afterSel();
+});
+
+$('csvBtn').addEventListener('click',()=>{
+  if(!S.R||!Object.keys(S.by).length) return toast('Nothing loaded yet',true);
+  const q=v=>{ const s=v==null?'':String(v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const r0=x=>x==null||!isFinite(x)?'':Math.round(x);
+  const lines=[['range_start','range_end','group','metric','selected','query_total','extra_cards','current_total','daily_avg','target_mode','target_input','target_for_range','expected_by_now','pace_gap','projected','pct_of_target','status','elapsed_biz_days','total_biz_days'].join(',')];
+  for(const m of METRICS){ if(!S.by[m.k]) continue;
+    const cur=curOf(m.k), p=pace(cur,metricPlan(m.k)), ov=getOv(m.k);
+    lines.push([S.start,S.end,m.group,m.k,S.selected.has(m.k)?'yes':'',baseOf(m.k),getExtra(m.k),cur,r0(S.R.elapsed?cur/S.R.elapsed:null),ov!=null?rowMode(m.k):'default',ov??'',r0(p.goal),r0(p.expected),r0(p.gap),r0(p.projected),p.pctGoal==null?'':p.pctGoal.toFixed(4),p.label,S.R.elapsed,S.R.total].map(q).join(','));
+  }
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`goal-pace_${S.start}_${S.end}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast('CSV exported');
+});
+
+$('viewSeg').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; LS.set('view',b.dataset.view); renderBreakdown(); });
+
+let tt;
+function toast(msg,err){ const t=$('toast'); t.textContent=msg; t.className='gp-toast show'+(err?' err':''); clearTimeout(tt); tt=setTimeout(()=>t.className='gp-toast'+(err?' err':''),3500); }
+
+/* ---------- boot: URL params, else current month ---------- */
+const qp=new URLSearchParams(location.search);
+if(qp.get('demo')==='1'){ S.demo=true; $('demoBanner').hidden=false; }
+const qs=qp.get('start'), qe=qp.get('end');
+if(isReal(qs||'')&&isReal(qe||'')) setRange(qs,qe);
+else setRange(monthStart(TODAY), monthEnd(TODAY));
+})();
 </script>
 </body>
 </html>
