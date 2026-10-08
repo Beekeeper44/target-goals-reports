@@ -43,7 +43,9 @@ module.exports = async (req, res) => {
     if (!host || !key) return res.status(500).json({ error: 'Set METABASE_HOST and METABASE_API_KEY in Vercel env vars.' });
     if (!/^https?:\/\//.test(host)) host = 'https://' + host;
 
-    let { start, end } = req.query || {};
+    let { start, end, fresh } = req.query || {};
+    fresh = fresh === '1';
+    if (fresh) tagCache = null;
     if (!isRealDate(start || '') || !isRealDate(end || '')) {
       return res.status(400).json({ error: 'start and end must be YYYY-MM-DD dates.' });
     }
@@ -63,6 +65,7 @@ module.exports = async (req, res) => {
       });
       const j = await mb(host, key, `/api/card/${QUESTION_ID}/query`, {
         parameters: [param('start_date', start), param('end_date', end)],
+        ignore_cache: fresh,
       });
       rows = toRows(j);
       source = `question ${QUESTION_ID}`;
@@ -74,12 +77,13 @@ module.exports = async (req, res) => {
         type: 'native',
         native: { query: buildSql(start, end), 'template-tags': {} },
         parameters: [],
+        ...(fresh ? { cache_ttl: 0 } : {}),
       });
       rows = toRows(j);
       source = 'embedded sql';
     }
 
-    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', fresh ? 'no-store' : 's-maxage=60, stale-while-revalidate=300');
     return res.status(200).json({ start, end, source, card_error: cardError, rows, fetched_at: new Date().toISOString() });
   } catch (e) {
     return res.status(500).json({ error: e.message || String(e) });

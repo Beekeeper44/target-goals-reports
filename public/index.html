@@ -141,7 +141,14 @@ input[type=checkbox].gp-cb:indeterminate::after{content:'';width:8px;height:2px;
 .gp-sharerow .n{text-align:right;color:var(--muted)}
 .gp-sharerow .n b{color:var(--text)}
 .gp-sub2{color:var(--muted);font-size:11px;padding:0 16px 8px}
-.gp-loading{opacity:.45;pointer-events:none}
+.gp-progress{position:fixed;left:0;right:0;top:0;height:3px;z-index:50;overflow:hidden;opacity:0;transition:opacity .2s;pointer-events:none}
+.gp-progress::before{content:'';position:absolute;top:0;bottom:0;width:30%;background:var(--green);box-shadow:0 0 8px var(--green);animation:gpSlide 1.1s ease-in-out infinite}
+@keyframes gpSlide{0%{left:-30%}100%{left:100%}}
+body.gp-loading .gp-progress{opacity:1}
+.gp-btn.busy{color:var(--green);border-color:var(--green);cursor:progress}
+.gp-spin{display:inline-block;width:10px;height:10px;border:2px solid var(--green);border-right-color:transparent;border-radius:50%;animation:gpRot .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes gpRot{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.gp-progress::before{animation:none;left:0;width:100%}.gp-spin{animation:none}}
 
 .gp-toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--panel2);border:1px solid var(--green);color:var(--text);padding:10px 16px;border-radius:8px;opacity:0;transition:.25s;pointer-events:none;max-width:90vw}
 .gp-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -381,6 +388,7 @@ html,body{font-size:15px}
     <div class="gp-field"><label for="startDate">Start</label><input type="date" id="startDate"></div>
     <div class="gp-field"><label for="endDate">End</label><input type="date" id="endDate"></div>
     <div class="gp-field"><label>&nbsp;</label><button id="loadBtn" class="gp-btn">Run report</button></div>
+    <div class="gp-field"><label>&nbsp;</label><button id="refreshBtn" class="gp-btn" title="Re-run the current range with fresh data">↻ Refresh</button></div>
     <div class="gp-field gp-push"><label>&nbsp;</label><button id="csvBtn" class="gp-btn">Export CSV</button></div>
     <div class="gp-presets" id="presets">
       <button data-q="this month">This month</button>
@@ -444,6 +452,7 @@ html,body{font-size:15px}
   </section>
   <footer class="gp-foot">Arena Club · Internal ops tool</footer>
 </div>
+<div class="gp-progress" aria-hidden="true"></div>
 <div id="toast" class="gp-toast" role="status"></div>
 
 <script>
@@ -638,45 +647,64 @@ function demoRows(s,e){
 }
 
 /* ---------- data loading ---------- */
-async function fetchRange(s,e){
-  if(S.demo) return demoRows(s,e);
-  let r;
-  try{ r=await fetch(`/api/report?start=${s}&end=${e}`); }
-  catch(err){ return {fallback:true}; }
+async function fetchRange(s,e,fresh){
+  if(S.demo){ await new Promise(r=>setTimeout(r,fresh?400:0)); return demoRows(s,e); }
+  let r; const ac=new AbortController(); const to=setTimeout(()=>ac.abort(),90000);
+  try{ r=await fetch(`/api/report?start=${s}&end=${e}${fresh?'&fresh=1':''}`,{cache:fresh?'no-store':'default',signal:ac.signal}); }
+  catch(err){ clearTimeout(to); if(err.name==='AbortError') throw new Error('The query took longer than 90 seconds. Try Refresh.'); return {fallback:true}; }
+  clearTimeout(to);
   if(r.status===404 || location.protocol==='file:') return {fallback:true};
   const j=await r.json().catch(()=>({error:'Bad response from /api/report'}));
   if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
   if(s===S.start&&e===S.end){ S.source=j.source; if(j.card_error) console.warn('Question 30328 failed, used embedded SQL:', j.card_error); }
   return j.rows;
 }
-async function load(){
+let busyTimer=null;
+function setBusy(on,label){
+  document.body.classList.toggle('gp-loading',on);
+  const lb=$('loadBtn'), rb=$('refreshBtn'); clearInterval(busyTimer);
+  if(on){
+    const t0=Date.now(), btn = label==='refresh'?rb:lb;
+    const tick=()=>{ const s=Math.floor((Date.now()-t0)/1000);
+      btn.innerHTML=`<span class="gp-spin"></span>Running${s>=2?' '+s+'s':'…'}`;
+      const rl=$('rangeLine'); const base=rl.dataset.base||''; rl.innerHTML=base+` · <span class="gp-spin"></span>running${s>=2?' '+s+'s':'…'}`; };
+    btn.classList.add('busy'); tick(); busyTimer=setInterval(tick,1000);
+  } else {
+    lb.textContent='Run report'; rb.textContent='↻ Refresh'; lb.classList.remove('busy'); rb.classList.remove('busy');
+  }
+}
+async function load(opts={}){
   if(!S.start||!S.end) return;
   const id=++S.req;
-  S.R=rangeStats(S.start,S.end);
+  const newR=rangeStats(S.start,S.end);
+  if(!S.R) S.R=newR;
   history.replaceState(null,'',`?start=${S.start}&end=${S.end}${S.demo?'&demo=1':''}`);
-  document.body.classList.add('gp-loading');
-  renderRangeLine('Loading…');
+  $('startDate').value=S.start; $('endDate').value=S.end;
+  $('rangeLine').dataset.base=`${fmtD(newR.start)} – ${fmtD(newR.end)} · ${newR.elapsed} of ${newR.total} biz days`;
+  setBusy(true, opts.fresh?'refresh':'run');
   try{
-    let rows=await fetchRange(S.start,S.end);
+    let rows=await fetchRange(S.start,S.end,opts.fresh);
+    S.R=newR;
     if(rows&&rows.fallback){ S.demo=true; $('demoBanner').hidden=false; rows=demoRows(S.start,S.end); toast('API unreachable here, showing demo data'); }
     if(id!==S.req) return;
     S.by=Object.fromEntries(rows.map(r=>[String(r.metric).toLowerCase(), r]));
     S.monthData=null;
     renderAll();
-    loadMonths(id);
+    loadMonths(id, opts.fresh);
+    if(opts.fresh) toast('Refreshed');
   }catch(err){
     if(id!==S.req) return;
     toast(err.message,true);
-    renderRangeLine('Load failed');
-  }finally{ if(id===S.req) document.body.classList.remove('gp-loading'); }
+    S.R=newR; renderRangeLine('load failed');
+  }finally{ if(id===S.req) setBusy(false); }
 }
-async function loadMonths(id){
+async function loadMonths(id, fresh){
   const segs=S.R.months;
   if(segs.length<2){ renderBreakdown(); return; }
   if(segs.length>12){ $('breakHint').textContent='Month breakdown is limited to 12 months.'; renderBreakdown(); return; }
   $('breakHint').textContent='Loading month breakdown…';
   try{
-    const res=await Promise.all(segs.map(m=> m.ms>TODAY ? Promise.resolve(null) : fetchRange(m.ms,m.me)));
+    const res=await Promise.all(segs.map(m=> m.ms>TODAY ? Promise.resolve(null) : fetchRange(m.ms,m.me,fresh)));
     if(id!==S.req) return;
     S.monthData=segs.map((m,i)=>({m, by: res[i]&&!res[i].fallback ? Object.fromEntries(res[i].map(r=>[String(r.metric).toLowerCase(),r])) : null}));
     $('breakHint').textContent='';
@@ -950,6 +978,7 @@ rangeText.addEventListener('input',()=>{
   else { h.textContent="Can't read that. Try oct - dec, q4, sept 2026 or 10/1 - 11/15."; h.className='gp-hint bad'; }
 });
 rangeText.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const r=parseRange(rangeText.value); if(r) setRange(r[0],r[1]); else toast("Can't read that range",true); }});
+$('refreshBtn').addEventListener('click',()=>{ if(!document.body.classList.contains('gp-loading')) load({fresh:true}); });
 $('loadBtn').addEventListener('click',()=>{
   const r=rangeText.value.trim()?parseRange(rangeText.value):null;
   if(r) return setRange(r[0],r[1]);
