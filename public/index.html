@@ -508,6 +508,17 @@ function rangeStats(start,end){
   return {start,end,total,elapsed,remaining:total-elapsed,months,monthsEq};
 }
 
+/* Metabase's elapsed_biz_days is the source of truth; the browser calc is only a fallback.
+   Works on a range ({elapsed,total,remaining}) or a month segment ({eb,rb}). */
+function useMbElapsed(target, rows){
+  let el=null;
+  (rows||[]).forEach(r=>{ const v=num(r.elapsed_biz_days); if(v!=null && (el==null||v>el)) el=v; });
+  if(el==null) return;
+  if('eb' in target){ target.eb=Math.min(el, target.rb); return; }
+  target.elapsed=Math.min(el, target.total);
+  target.remaining=target.total-target.elapsed;
+}
+
 /* ---------- range text parser ---------- */
 function parseRange(txt){
   const t=(txt||'').toLowerCase().trim().replace(/\s+/g,' ');
@@ -687,6 +698,7 @@ async function load(opts={}){
     S.R=newR;
     if(rows&&rows.fallback){ S.demo=true; $('demoBanner').hidden=false; rows=demoRows(S.start,S.end); toast('API unreachable here, showing demo data'); }
     if(id!==S.req) return;
+    useMbElapsed(newR, rows);
     S.by=Object.fromEntries(rows.map(r=>[String(r.metric).toLowerCase(), r]));
     S.monthData=null;
     renderAll();
@@ -706,6 +718,7 @@ async function loadMonths(id, fresh){
   try{
     const res=await Promise.all(segs.map(m=> m.ms>TODAY ? Promise.resolve(null) : fetchRange(m.ms,m.me,fresh)));
     if(id!==S.req) return;
+    segs.forEach((m,i)=>{ if(res[i]&&!res[i].fallback) useMbElapsed(m, res[i]); });
     S.monthData=segs.map((m,i)=>({m, by: res[i]&&!res[i].fallback ? Object.fromEntries(res[i].map(r=>[String(r.metric).toLowerCase(),r])) : null}));
     $('breakHint').textContent='';
   }catch(err){ if(id===S.req){ $('breakHint').textContent='Month breakdown failed: '+err.message; } }
