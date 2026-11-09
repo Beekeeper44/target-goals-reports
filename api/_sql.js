@@ -2,7 +2,13 @@
 // selectors removed: the app always sends an explicit start + end date.
 // start/end are validated as YYYY-MM-DD in report.js before they get here.
 function buildSql(start, end) {
-  return SQL.replace('__START__', start).replace('__END__', end);
+  return SQL.replace('__ORDER_CTES__', ORDER_CTES).replace('__START__', start).replace('__END__', end);
+}
+
+// Per-day release counts (PT date of ready_to_reveal_email_sent_at) using the
+// exact same order/card filters as the report. Used by /api/daily.
+function buildDailySql(start, end) {
+  return DAILY_SQL.replace('__ORDER_CTES__', ORDER_CTES).replace('__START__', start).replace('__END__', end);
 }
 
 const SQL = `
@@ -83,55 +89,7 @@ targets AS (
   GROUP BY p.metric
 ),
 
-order_items_all AS (
-  SELECT order_id, card_id FROM APP_PROD.ADMIN.ORDER_ITEMS  WHERE NOT COALESCE(_SNOWFLAKE_DELETED, FALSE)
-  UNION
-  SELECT order_id, card_id FROM APP_PROD.PUBLIC.ORDER_ITEMS WHERE NOT COALESCE(_SNOWFLAKE_DELETED, FALSE)
-),
-
-order_base AS (
-  SELECT
-    co.id,
-    CASE
-      WHEN co.user_id = '00838bfd-7979-41bd-81f5-c6777c32d6c4' THEN 'slab_packs'
-      WHEN co.user_id IN (
-        '6b651925-1838-4253-805b-0a57d885f35d',
-        '2be3701a-eb2d-4a68-b743-3e425806f994',
-        '3810644b-0af4-497a-bfba-e20d2a310635'
-      ) THEN NULL
-      ELSE 'customers'
-    END AS grp
-  FROM APP_PROD.PUBLIC.CATEGORY_ORDERS co
-  LEFT JOIN APP_PROD.ADMIN.ORDERS ao
-    ON ao.id = co.id
-   AND NOT COALESCE(ao._SNOWFLAKE_DELETED, FALSE)
-  WHERE NOT COALESCE(co._SNOWFLAKE_DELETED, FALSE)
-    AND co.kind IN ('submission', 'submit_and_return')
-    AND co.number NOT IN (50, 2275, 337)
-    AND ao.ready_to_reveal_email_sent_at IS NOT NULL
-    AND CONVERT_TIMEZONE('UTC','America/Los_Angeles', ao.ready_to_reveal_email_sent_at)::date >= (SELECT range_start FROM bounds)
-    AND CONVERT_TIMEZONE('UTC','America/Los_Angeles', ao.ready_to_reveal_email_sent_at)::date <  (SELECT range_next  FROM bounds)
-    AND NOT EXISTS (
-      SELECT 1
-      FROM APP_PROD.PUBLIC.ITEM_COST_ACCOUNTING ica
-      JOIN APP_PROD.PUBLIC.CATEGORY_ORDER_ITEMS coi ON coi.id = ica.buy_order_item_id
-      WHERE NOT COALESCE(ica._SNOWFLAKE_DELETED, FALSE)
-        AND ica.kind = 'repack_offer'
-        AND coi.category_order_id = co.id
-    )
-),
-
-order_cards AS (
-  SELECT ob.grp, oi.card_id, NOT COALESCE(c.is_pre_graded, FALSE) AS is_raw
-  FROM order_base ob
-  JOIN order_items_all oi ON oi.order_id = ob.id
-  LEFT JOIN APP_PROD.ADMIN.CARDS c
-    ON c.id = oi.card_id
-   AND NOT COALESCE(c._SNOWFLAKE_DELETED, FALSE)
-  WHERE ob.grp IS NOT NULL
-),
-
-order_actuals AS (
+__ORDER_CTES__order_actuals AS (
   SELECT grp AS metric, CAST(COUNT(*) AS numeric) AS qty FROM order_cards GROUP BY grp
   UNION ALL
   SELECT grp || '_raw', CAST(COUNT(*) AS numeric) FROM order_cards WHERE is_raw GROUP BY grp
@@ -162,4 +120,85 @@ CROSS JOIN biz_days b
 CROSS JOIN bounds bd
 `;
 
-module.exports = { buildSql };
+// Shared by the report and the daily query so the two never drift apart.
+// Expects a \`bounds\` CTE with range_start and range_next.
+const ORDER_CTES = `order_items_all AS (
+  SELECT order_id, card_id FROM APP_PROD.ADMIN.ORDER_ITEMS  WHERE NOT COALESCE(_SNOWFLAKE_DELETED, FALSE)
+  UNION
+  SELECT order_id, card_id FROM APP_PROD.PUBLIC.ORDER_ITEMS WHERE NOT COALESCE(_SNOWFLAKE_DELETED, FALSE)
+),
+
+order_base AS (
+  SELECT
+    co.id,
+    CASE
+      WHEN co.user_id = '00838bfd-7979-41bd-81f5-c6777c32d6c4' THEN 'slab_packs'
+      WHEN co.user_id IN (
+        '6b651925-1838-4253-805b-0a57d885f35d',
+        '2be3701a-eb2d-4a68-b743-3e425806f994',
+        '3810644b-0af4-497a-bfba-e20d2a310635'
+      ) THEN NULL
+      ELSE 'customers'
+    END AS grp,
+    CONVERT_TIMEZONE('UTC','America/Los_Angeles', ao.ready_to_reveal_email_sent_at)::date AS dt
+  FROM APP_PROD.PUBLIC.CATEGORY_ORDERS co
+  LEFT JOIN APP_PROD.ADMIN.ORDERS ao
+    ON ao.id = co.id
+   AND NOT COALESCE(ao._SNOWFLAKE_DELETED, FALSE)
+  WHERE NOT COALESCE(co._SNOWFLAKE_DELETED, FALSE)
+    AND co.kind IN ('submission', 'submit_and_return')
+    AND co.number NOT IN (50, 2275, 337)
+    AND ao.ready_to_reveal_email_sent_at IS NOT NULL
+    AND CONVERT_TIMEZONE('UTC','America/Los_Angeles', ao.ready_to_reveal_email_sent_at)::date >= (SELECT range_start FROM bounds)
+    AND CONVERT_TIMEZONE('UTC','America/Los_Angeles', ao.ready_to_reveal_email_sent_at)::date <  (SELECT range_next  FROM bounds)
+    AND NOT EXISTS (
+      SELECT 1
+      FROM APP_PROD.PUBLIC.ITEM_COST_ACCOUNTING ica
+      JOIN APP_PROD.PUBLIC.CATEGORY_ORDER_ITEMS coi ON coi.id = ica.buy_order_item_id
+      WHERE NOT COALESCE(ica._SNOWFLAKE_DELETED, FALSE)
+        AND ica.kind = 'repack_offer'
+        AND coi.category_order_id = co.id
+    )
+),
+
+order_cards AS (
+  SELECT ob.dt, ob.grp, oi.card_id, NOT COALESCE(c.is_pre_graded, FALSE) AS is_raw
+  FROM order_base ob
+  JOIN order_items_all oi ON oi.order_id = ob.id
+  LEFT JOIN APP_PROD.ADMIN.CARDS c
+    ON c.id = oi.card_id
+   AND NOT COALESCE(c._SNOWFLAKE_DELETED, FALSE)
+  WHERE ob.grp IS NOT NULL
+),
+
+`;
+
+const DAILY_SQL = `
+WITH
+bounds AS (
+  SELECT
+    LEAST(x.s, x.e)                           AS range_start,
+    DATEADD(day, 1, GREATEST(x.s, x.e))::date AS range_next
+  FROM (SELECT '__START__'::date AS s, '__END__'::date AS e) x
+),
+
+__ORDER_CTES__
+
+daily AS (
+  SELECT
+    dt,
+    COUNT_IF(grp = 'customers')                 AS customers,
+    COUNT_IF(grp = 'customers' AND is_raw)      AS customers_raw,
+    COUNT_IF(grp = 'slab_packs')                AS slab_packs,
+    COUNT_IF(grp = 'slab_packs' AND is_raw)     AS slab_packs_raw,
+    COUNT(*)                                    AS total_cards
+  FROM order_cards
+  GROUP BY dt
+)
+
+SELECT TO_CHAR(dt, 'YYYY-MM-DD') AS day, customers, customers_raw, slab_packs, slab_packs_raw, total_cards
+FROM daily
+ORDER BY dt
+`;
+
+module.exports = { buildSql, buildDailySql };

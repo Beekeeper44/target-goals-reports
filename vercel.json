@@ -1,5 +1,6 @@
 {
   "functions": {
-    "api/report.js": { "maxDuration": 60 }
+    "api/report.js": { "maxDuration": 60 },
+    "api/daily.js": { "maxDuration": 60 }
   }
 }
