@@ -23,6 +23,10 @@ The `80K @ pace · status` pill next to the status pill opens the release pace p
 
 The page has a daily pace picker (1,300–1,425), metric toggles, the cumulative total vs 80k, a cumulative-vs-pace chart, and a day-by-day table: each day's customers_raw, slab_packs_raw, released, vs pace, cumulative, pace target (✓ on the day the picked pace hits 80k), gap, and Hit / Missed. Weekend days with releases are listed but don't count as release days. Today counts toward the target as it's released (up to one day of pace), so a mid-day check doesn't read as behind.
 
+The chart and table also show Oct 1 – Nov 8 as history (collapsible in the table). History cumulative is walked back from the 35,000 start: each earlier day's value is 35,000 minus what was released after it, up to Nov 8. The chart's x-axis is calendar days, so weekends show as flat steps.
+
+**Fed by the main page.** The release page counts whatever metrics are ticked on Goal Pace (the Counting chips toggle the same selection), uses the goal typed on Goal Pace (80,000 if blank), and counts from the main range start when it's on or before Nov 9 (Oct 1 otherwise). The big number is the same cumulative the main page shows, e.g. Oct 1 – today. It's judged against the plan (35,000 on Nov 8 + pace × release days): Ahead is 1+ day of pace over plan, On pace 0–1, Slightly behind within 1 day under, Behind more than that. Extra cards added on the main page aren't dated, so they're not in the daily counts.
+
 Data comes from `/api/daily?start=&end=`, which runs per-day counts through the same order/card filters as the report (shared CTEs in `api/_sql.js`). It's independent of the date range picked on the main page. Schedule constants are in `RP` in `public/index.html`.
 
 ![80K release pace examples](docs/release-pace-examples.png)

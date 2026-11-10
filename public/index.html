@@ -217,6 +217,10 @@ body.gp-loading .gp-progress{opacity:1}
 #relTable tr.future td{color:var(--dim)}
 #relTable tr.today td{background:#0b130b}
 #relTable tr.off td{color:var(--dim);font-style:italic}
+#relTable tr.hist td{color:var(--muted)}
+#relTable tr.hist td b{color:var(--text,#cfd6cd)}
+.gp-histbtn{padding:4px 10px;font-size:11px;margin-right:8px}
+.gp-rp-chart{background:radial-gradient(120% 90% at 85% 0%,rgba(199,125,255,.07),transparent 60%),radial-gradient(90% 80% at 10% 100%,rgba(57,255,20,.06),transparent 60%)}
 #relTable td.hit{color:var(--green);font-weight:700}
 .gp-big #bigCur{font-family:Inter,Arial,sans-serif;letter-spacing:-.03em}
 .gp-seg,.gp-rseg{border-radius:0}
@@ -484,7 +488,7 @@ html,body{font-size:15px}
         <button class="gp-btn" id="relRefresh">↻ Refresh</button>
       </div>
       <div class="gp-hero">
-        <div class="gp-big"><span id="relCum">—</span><span class="gp-of">of <b>80,000</b></span></div>
+        <div class="gp-big"><span id="relCum">—</span><span class="gp-of">of <b id="relGoalTxt">80,000</b></span></div>
         <span id="relPill2" class="gp-pill">—</span>
       </div>
       <div class="gp-bar"><div class="gp-fill" id="relFill"></div><div class="gp-mark" id="relMark"><span>should be here today</span></div></div>
@@ -496,7 +500,7 @@ html,body{font-size:15px}
       <div id="relChart" class="gp-rp-chart"></div>
     </section>
     <section class="gp-card">
-      <div class="gp-card-head"><h2>Day by day</h2><div class="gp-hint">✓ marks the day the picked pace hits 80k · weekends with releases are listed but don't count as days</div></div>
+      <div class="gp-card-head"><h2>Day by day</h2><div class="gp-hint">October and early November shown as history · ✓ marks the day the picked pace hits 80k · weekends with releases are listed but don't count as days</div></div>
       <div class="gp-tablewrap"><table class="gp-table" id="relTable"></table></div>
     </section>
   </div>
@@ -930,16 +934,23 @@ function renderPace(){
 }
 
 /* ---------- 80k release pace: own page at #release, daily data from /api/daily ---------- */
-const RP={start:'2026-11-09', end:'2026-12-31', base:35000, goal:80000,
+const RP={hist:'2026-10-01', start:'2026-11-09', end:'2026-12-31', base:35000, goal:80000,
   off:new Set(['2026-11-26','2026-12-24','2026-12-25']),
   paces:[1300,1325,1350,1375,1400,1425], keys:['customers_raw','slab_packs_raw']};
 const isWkday = s => { const w=P(s).getUTCDay(); return w!==0&&w!==6; };
 const isRelDay = s => isWkday(s) && !RP.off.has(s);
 function relDays(a,b){ let n=0; for(let d=a; d<=b; d=addDays(d,1)) if(isRelDay(d)) n++; return n; }
 const REL_TOTAL = relDays(RP.start, RP.end);
-function relHitDate(rate){
+// The main Goal Pace page feeds this page: its selected metrics are what we count,
+// its typed goal is the goal, and its range start (if on/before Nov 9) is where counting starts.
+const REL_COLS=['customers','customers_raw','slab_packs','slab_packs_raw','total_cards'];
+function relGoal(){ const gv=LS.get(goalKey(),null); if(gv!=null && S.R){ const g=planFromValue(gv).goal; if(g>0) return g; } return RP.goal; }
+const relFrom = () => (S.start && S.start<=RP.start) ? S.start : RP.hist;
+const kfmt = v => v>=1000 ? (Math.round(v/100)/10).toString().replace(/\.0$/,'')+'K' : fmt(v);
+// plan date the picked pace reaches the goal (plan starts at RP.base on Nov 8)
+function relHitDate(rate, goal=relGoal()){
   if(!rate||rate<=0) return null;
-  const need=Math.ceil((RP.goal-RP.base)/rate); if(need>400) return null;
+  const need=Math.ceil((goal-RP.base)/rate); if(need>400) return null;
   let n=0, d=RP.start;
   for(let i=0;i<800;i++,d=addDays(d,1)) if(isRelDay(d) && ++n>=need) return d;
   return null;
@@ -948,31 +959,31 @@ const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const fmtShort = s => { const d=P(s); return `${MONS[d.getUTCMonth()]} ${d.getUTCDate()}`; };
 const fmtDay = s => `${DOW[P(s).getUTCDay()]} ${fmtShort(s)}`;
 const relPace = () => LS.get('rpPace',1300);
-const relKeys = () => { const k=LS.get('rpKeys',RP.keys).filter(x=>RP.keys.includes(x)); return k.length?k:RP.keys; };
-const REL = {rows:null, loading:false, err:null, demo:false, fetched:null};
+const relKeys = () => { const k=REL_COLS.filter(x=>S.selected.has(x)); return k.length?k:RP.keys; };
+const REL = {rows:null, loading:false, err:null, demo:false, fetched:null, from:null};
 const relDataEnd = () => minS(TODAY, RP.end);
 
 function relDemoRows(){
   const out=[];
-  if(TODAY<RP.start) return out;
   let i=0;
-  for(let d=RP.start; d<=relDataEnd(); d=addDays(d,1), i++){
+  for(let d=relFrom(); d<=relDataEnd(); d=addDays(d,1), i++){
     if(!isRelDay(d)) continue;
-    const f=0.82+((i*37)%41)/100, part = d===TODAY ? 0.45 : 1;
-    const cr=Math.round(560*f*part), sr=Math.round(780*(1.6-f+0.2)*part);
-    out.push({day:d, customers_raw:cr, slab_packs_raw:sr, customers:Math.round(cr*1.07), slab_packs:Math.round(sr*5.2)});
+    const f=0.82+((i*37)%41)/100, part = d===TODAY ? 0.45 : 1, row={day:d};
+    // in demo, spread the main page's simulated totals over the days so both pages agree
+    REL_COLS.forEach((k,j)=>{ const avg = (S.R&&S.by[k]&&S.R.elapsed) ? baseOf(k)/S.R.elapsed : ({customers:750,customers_raw:560,slab_packs:3300,slab_packs_raw:780,total_cards:4050})[k];
+      const jit = j%2 ? (2-f) : f; row[k]=Math.round(avg*jit*part); });
+    out.push(row);
   }
   return out;
 }
 async function loadRelease(fresh){
-  if(REL.loading) return; REL.loading=true; REL.err=null; renderRelAll();
+  if(REL.loading) return; REL.loading=true; REL.err=null; const from=relFrom(); REL.from=from; renderRelAll();
   const end=relDataEnd();
   try{
-    if(TODAY<RP.start){ REL.rows=[]; }
-    else if(S.demo){ await new Promise(r=>setTimeout(r,fresh?300:0)); REL.rows=relDemoRows(); REL.demo=true; }
+    if(S.demo){ await new Promise(r=>setTimeout(r,fresh?300:0)); REL.rows=relDemoRows(); REL.demo=true; }
     else{
       let r;
-      try{ r=await fetch(`/api/daily?start=${RP.start}&end=${end}${fresh?'&fresh=1':''}`,{cache:fresh?'no-store':'default'}); }
+      try{ r=await fetch(`/api/daily?start=${from}&end=${end}${fresh?'&fresh=1':''}`,{cache:fresh?'no-store':'default'}); }
       catch(e){ r=null; }
       if(!r || r.status===404 || location.protocol==='file:'){ REL.rows=relDemoRows(); REL.demo=true; }
       else{
@@ -984,62 +995,65 @@ async function loadRelease(fresh){
     REL.fetched=new Date();
   }catch(e){ REL.err=e.message; }
   REL.loading=false; renderRelAll();
+  if(relFrom()!==REL.from) loadRelease();
 }
 
 // everything the pill and the page need, from the daily rows
 function relCalc(){
-  const pace=relPace(), keys=relKeys();
-  const by={}; (REL.rows||[]).forEach(r=>{ by[r.day]=keys.reduce((a,k)=>a+(num(r[k])||0),0); });
+  const pace=relPace(), keys=relKeys(), goal=relGoal(), from=REL.from||relFrom();
+  const by={}, hist={}; (REL.rows||[]).forEach(r=>{ if(r.day<from) return; const v=keys.reduce((a,k)=>a+(num(r[k])||0),0); (r.day>=RP.start?by:hist)[r.day]=v; });
   const parts={}; (REL.rows||[]).forEach(r=>{ parts[r.day]=r; });
-  const end=relDataEnd(), todayIn = TODAY>=RP.start && TODAY<=RP.end;
+  const end=relDataEnd(), todayIn = TODAY>=RP.start && TODAY<=RP.end, todayRelDay = todayIn&&isRelDay(TODAY);
   const dayN = TODAY<RP.start ? 0 : relDays(RP.start, end);
-  const completed = todayIn && isRelDay(TODAY) ? dayN-1 : dayN;
-  const released = Object.values(by).reduce((a,v)=>a+v,0);
+  const completed = todayRelDay ? dayN-1 : dayN;
+  const histTotal = Object.values(hist).reduce((a,v)=>a+v,0);   // released from the range start to Nov 8
+  const released = Object.values(by).reduce((a,v)=>a+v,0);      // released since Nov 9
+  const cum = histTotal + released;                              // same number the main page shows
   const todayRel = by[TODAY]||0;
-  // today counts toward the target as it is released, capped at one day of pace,
+  const endTarget = pace*dayN, planEnd = RP.base+endTarget;      // plan says 35,000 + pace × days by end of today
+  // today counts toward the plan as it is released, capped at one day of pace,
   // so checking mid-day doesn't read as behind
-  const judgeTarget = pace*completed + (todayIn&&isRelDay(TODAY) ? Math.min(pace,todayRel) : 0);
-  const judgeRel = released - (todayIn&&isRelDay(TODAY) ? Math.max(0,todayRel-pace) : 0);
-  const endTarget = pace*dayN;                 // where the table says we should be by end of today
-  const cum = RP.base+released;
-  const ratio = judgeTarget>0 ? judgeRel/judgeTarget : null;
-  const rateDays = completed || dayN;
-  const rate = rateDays ? (completed ? (released-todayRel)/completed : released/dayN) : null;
+  const planJudge = RP.base + pace*completed + (todayRelDay ? Math.min(pace,todayRel) : 0);
+  const cumJudge = cum - (todayRelDay ? Math.max(0,todayRel-pace) : 0);
+  const gapDays = (cumJudge-planJudge)/pace;
+  const rate = completed ? (released-todayRel)/completed : dayN ? released/dayN : null;
   let st, lab;
-  if(cum>=RP.goal){ st='hit'; lab='80k hit'; }
-  else if(!REL.rows){ st=''; lab=REL.loading?'…':'—'; }
-  else if(!dayN){ st='notstarted'; lab='Not started'; }
-  else if(!completed){ st = todayRel>=pace?'onpace':'notstarted'; lab = todayRel>=pace?'On pace':'Day 1 in progress'; }
-  else if(ratio>=1.05){ st='ahead'; lab='Ahead'; }
-  else if(ratio>=1){ st='onpace'; lab='On pace'; }
-  else if(ratio>=0.9){ st='risk'; lab='Slightly behind'; }
+  if(!REL.rows){ st=''; lab=REL.loading?'…':'—'; }
+  else if(cum>=goal){ st='hit'; lab=`${kfmt(goal)} hit`; }
+  else if(gapDays>=1){ st='ahead'; lab='Ahead'; }
+  else if(gapDays>=0){ st='onpace'; lab='On pace'; }
+  else if(gapDays>=-1){ st='risk'; lab='Slightly behind'; }
   else { st='behind'; lab='Behind'; }
   const remDays = TODAY>=RP.end ? 0 : relDays(maxS(addDays(TODAY,1),RP.start), RP.end);
-  return {pace,keys,by,parts,dayN,completed,released,todayRel,endTarget,cum,ratio,rate,st,lab,remDays,todayIn,
-    gap: released-endTarget, needed: remDays ? Math.max(RP.goal-cum,0)/remDays : null,
-    matched: rate==null?null:RP.paces.filter(v=>v<=rate).pop(), eta: relHitDate(rate), paceHit: relHitDate(pace)};
+  // date we reach the goal from today's cumulative at the actual pace
+  let eta=null;
+  if(rate>0){ let left=goal-cum, d=TODAY; if(left<=0) eta=TODAY; else for(let i=0;i<800;i++){ d=addDays(d,1); if(isRelDay(d)){ left-=rate; if(left<=0){ eta=d; break; } } } }
+  return {pace,keys,goal,from,by,hist,parts,dayN,completed,histTotal,released,todayRel,endTarget,planEnd,cum,rate,st,lab,remDays,todayIn,gapDays,
+    gap: cum-planEnd, needed: remDays ? Math.max(goal-cum,0)/remDays : null,
+    matched: rate==null?null:RP.paces.filter(v=>v<=rate).pop(), eta, paceHit: relHitDate(pace, goal)};
 }
 
 function renderRelPill(){
   const c=relCalc(), el=$('relPill');
   el.className='gp-pill gp-pilllink '+c.st;
-  el.textContent=`80K @ ${fmt(c.pace)} · ${c.lab}`;
-  el.title = REL.rows ? `${fmt(c.released)} released since ${fmtShort(RP.start)} · cumulative ${fmt(c.cum)} · click for the day-by-day page` : 'Open the 80K release pace page';
+  el.textContent=`${kfmt(c.goal)} @ ${fmt(c.pace)} · ${c.lab}`;
+  el.title = REL.rows ? `${fmt(c.cum)} released since ${fmtShort(c.from)} vs ${fmt(c.planEnd)} on the plan · click for the day-by-day page` : 'Open the release pace page';
 }
-function renderRelease(){ renderRelPill(); } // called from renderPace
+function renderRelease(){ if(REL.demo && S.R && !REL.loading && REL.demoSig!==S.start+S.end){ REL.demoSig=S.start+S.end; REL.rows=relDemoRows(); }
+  if(!REL.loading && REL.from && relFrom()!==REL.from) loadRelease(); renderRelPill(); if(location.hash==='#release') renderRelPage(); } // called from renderPace
 function renderRelAll(){ renderRelPill(); if(location.hash==='#release') renderRelPage(); }
 
 function renderRelPage(){
   const c=relCalc();
-  $('relSeg').innerHTML=RP.paces.map(v=>`<button data-rp="${v}" class="${v===c.pace?'on':''}" title="80k on ${fmtShort(relHitDate(v))}">${fmt(v)}</button>`).join('');
-  $('relKeySeg').innerHTML=RP.keys.map(k=>`<button data-rk="${k}" class="${c.keys.includes(k)?'on':''}">${k}</button>`).join('');
-  $('relSrc').textContent = REL.loading ? 'loading daily data…' : REL.err ? 'error' : REL.rows ? `${REL.demo?'demo data':'live · /api/daily'} · ${fmtShort(RP.start)} – ${fmtShort(relDataEnd())}` : '';
+  $('relSeg').innerHTML=RP.paces.map(v=>`<button data-rp="${v}" class="${v===c.pace?'on':''}" title="${kfmt(c.goal)} on ${fmtShort(relHitDate(v,c.goal))}">${fmt(v)}</button>`).join('');
+  $('relKeySeg').innerHTML=REL_COLS.map(k=>`<button data-rk="${k}" class="${c.keys.includes(k)?'on':''}" title="Same as ticking ${k} on the main page">${k}</button>`).join('');
+  $('relSrc').textContent = REL.loading ? 'loading daily data…' : REL.err ? 'error' : REL.rows ? `${REL.demo?'demo data':'live · /api/daily'} · fed by Goal Pace · ${fmtShort(c.from)} – ${fmtShort(relDataEnd())}` : '';
   $('relRefresh').textContent = REL.loading ? 'Loading…' : '↻ Refresh';
   $('relCum').textContent=fmt(c.cum);
   $('relPill2').className='gp-pill '+c.st; $('relPill2').textContent=`${fmt(c.pace)}/day · ${c.lab}`;
-  const span=RP.goal-RP.base;
-  $('relFill').className='gp-fill '+c.st; $('relFill').style.width=Math.min(100,Math.max(0,(c.cum-RP.base)/span*100))+'%';
-  const mk=Math.min(100,c.endTarget/span*100);
+  $('relGoalTxt').textContent=fmt(c.goal);
+  $('relFill').className='gp-fill '+c.st; $('relFill').style.width=Math.min(100,Math.max(0,c.cum/c.goal*100))+'%';
+  const mk=Math.min(100,c.planEnd/c.goal*100);
   $('relMark').style.left=`calc(${mk}% - 1px)`;
   const lab=$('relMark').querySelector('span');
   lab.style.transform = mk<15?'translateX(0)':mk>85?'translateX(-100%)':'translateX(-50%)'; lab.style.left = mk<15?'0':mk>85?'2px':'50%';
@@ -1047,16 +1061,38 @@ function renderRelPage(){
   const stat=(k,v,s)=>`<div class="gp-stat"><div class="k">${k}</div><div class="v">${v}</div>${s?`<div class="s">${s}</div>`:''}</div>`;
   $('relStats').innerHTML=[
     stat('Release day', c.dayN?`${c.dayN} of ${REL_TOTAL}`:'—', `off Nov 26, Dec 24–25${c.todayIn?' · today in progress':''}`),
-    stat('Released vs pace', `${fmt(c.released)} <span style="color:var(--muted);font-weight:400;font-size:13px">/ ${fmt(c.endTarget)}</span>`, c.dayN?`<span class="${c.gap>=0?'pos':'neg'}">${fmtS(c.gap)}</span> vs end-of-day target`:''),
+    stat('Cumulative vs plan', `${fmt(c.cum)} <span style="color:var(--muted);font-weight:400;font-size:13px">/ ${fmt(c.planEnd)}</span>`, `<span class="${c.gap>=0?'pos':'neg'}">${fmtS(c.gap)}</span> · ${fmt(c.histTotal)} before Nov 9 + ${fmt(c.released)} since`),
     stat('Actual pace', c.rate==null?'—':`${fmt(c.rate)}/day`, c.rate==null?'':(c.completed?`over ${c.completed} completed days · `:'')+(c.matched?`meets the ${fmt(c.matched)} column`:`below the ${fmt(RP.paces[0])} column`)),
     stat('Released today', fmt(c.todayRel), c.todayIn?`${fmt(Math.max(c.pace-c.todayRel,0))} more to hit ${fmt(c.pace)} today`:''),
-    stat('80k at actual pace', c.eta?fmtShort(c.eta):'—', c.paceHit?`${fmt(c.pace)}/day lands ${fmtShort(c.paceHit)}`:''),
-    stat('Needed per day', c.needed==null?'—':fmt(c.needed), c.remDays?`after today to hit 80k by ${fmtShort(RP.end)} · ${c.remDays} days left`:'window is over')
+    stat(`${kfmt(c.goal)} at actual pace`, c.eta?fmtShort(c.eta):'—', c.paceHit?`${fmt(c.pace)}/day plan lands ${fmtShort(c.paceHit)}`:''),
+    stat('Needed per day', c.needed==null?'—':fmt(c.needed), c.remDays?`after today to hit ${fmt(c.goal)} by ${fmtShort(RP.end)} · ${c.remDays} days left`:'window is over')
   ].join('');
-  $('relNote').textContent = REL.err ? 'Couldn\'t load daily data: '+REL.err : (REL.demo ? 'Demo data. /api/daily isn\'t reachable from here; deploy to Vercel for live numbers.' : '');
+  const extra=c.keys.reduce((a,k)=>a+(getExtra(k)||0),0), notes=[];
+  if(REL.err) notes.push('Couldn\'t load daily data: '+REL.err);
+  if(REL.demo) notes.push('Demo data. /api/daily isn\'t reachable from here; deploy to Vercel for live numbers.');
+  if(extra) notes.push(`Extra cards added on the main page (${fmtS(extra)}) aren't dated, so they're not in these daily counts.`);
+  if(S.start>RP.start) notes.push(`The main page range starts ${fmtShort(S.start)}, after Nov 9, so this page counts from ${fmtShort(RP.hist)} instead.`);
+  $('relNote').textContent = notes.join(' ');
 
   // table
-  const hit=c.paceHit, rows=[]; let n=0, cumA=RP.base;
+  const hit=c.paceHit, rows=[]; let n=0, cumA=c.histTotal;
+  // history (Oct 1 – Nov 8): cumulative walks back from the 35,000 start
+  const showHist = LS.get('rpHist',true);
+  const histDays=[]; for(let d=c.from; d<RP.start; d=addDays(d,1)) histDays.push(d);
+  const histTotal=histDays.reduce((a,d)=>a+(c.hist[d]||0),0);
+  const histRows=[]; let hc=0, hn=0, lastMon=null;
+  for(const d of histDays){
+    const v=c.hist[d]||0; hc+=v;
+    if(!isWkday(d) && !v) continue;
+    hn++;
+    const mon=d.slice(0,7); if(mon!==lastMon){ lastMon=mon; histRows.push(`<tr class="gp-xrow"><td></td><td class="l" colspan="9" style="color:var(--muted);letter-spacing:.12em;text-transform:uppercase;font-size:11px">${MONS[P(d).getUTCMonth()]} · history</td></tr>`); }
+    const pr=c.parts[d]||{};
+    histRows.push(`<tr class="hist"><td>—</td><td class="l">${fmtDay(d)}</td><td>${fmt(num(pr.customers_raw)||0)}</td><td>${fmt(num(pr.slab_packs_raw)||0)}</td><td><b>${fmt(v)}</b></td><td>${isWkday(d)?`<span class="${v-c.pace>=0?'pos':'neg'}">${fmtS(v-c.pace)}</span>`:''}</td><td>${fmt(hc)}</td><td style="color:var(--dim)">—</td><td></td><td>${isWkday(d)?`<span class="gp-pill ${v>=c.pace?'hit':'upcoming'}">${v>=c.pace?'Would hit':'Below'}</span>`:'<span class="gp-pill upcoming">Weekend</span>'}</td></tr>`);
+  }
+  const hDays=histDays.filter(isWkday).length;
+  rows.push(`<tr class="gp-xrow"><td></td><td class="l" colspan="9"><button class="gp-btn gp-histbtn" data-rhist="1">${showHist?'▾ Hide':'▸ Show'} ${fmtShort(c.from)} – Nov 8 history</button> <span style="color:var(--muted)">${fmt(histTotal)} released over ${hDays} weekdays · ${hDays?fmt(histTotal/hDays):'—'}/day</span></td></tr>`);
+  if(showHist) rows.push(...histRows);
+  rows.push(`<tr class="gp-xrow"><td></td><td class="l" colspan="9" style="color:var(--green);letter-spacing:.12em;text-transform:uppercase;font-size:11px">Pace window · Nov 9 – Dec 31 · plan starts at ${fmt(RP.base)}, actual at ${fmt(c.histTotal)} (<span class="${c.histTotal-RP.base>=0?'pos':'neg'}">${fmtS(c.histTotal-RP.base)}</span>)</td></tr>`);
   for(let d=RP.start; d<=RP.end; d=addDays(d,1)){
     const rel=isRelDay(d), have=c.by[d]!=null, v=c.by[d]||0, past=d<=relDataEnd();
     if(!rel && !(have&&v>0) && !RP.off.has(d)) continue;
@@ -1080,32 +1116,67 @@ function renderRelPage(){
 
   // chart
   $('relChart').innerHTML=relChart(c);
-  $('relChartHint').textContent=`actual vs ${fmt(c.pace)}/day · faint lines are the other paces`;
+  $('relChartHint').textContent=`${fmtShort(c.from)} – Dec 31 · actual vs ${fmt(c.pace)}/day plan · faint lines are the other paces`;
 }
 
 function relChart(c){
-  const W=1000,H=320,L=62,R=18,T=18,B=40, iw=W-L-R, ih=H-T-B, N=REL_TOTAL;
-  const lo=RP.base, hi=RP.base+RP.paces[RP.paces.length-1]*N+500;
-  const x=i=>L+iw*i/N, y=v=>T+ih*(1-(v-lo)/(hi-lo));
-  let g='';
-  for(let v=40000; v<=hi; v+=10000) g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" fill="var(--dim)" font-size="11">${v/1000}k</text>`;
-  g+=`<line x1="${L}" x2="${W-R}" y1="${y(RP.goal)}" y2="${y(RP.goal)}" stroke="var(--amber)" stroke-dasharray="4 4"/><text x="${L+6}" y="${y(RP.goal)-6}" fill="var(--amber)" font-size="11">80k goal</text>`;
-  RP.paces.forEach(p=>{ const sel=p===c.pace;
-    g+=`<line x1="${x(0)}" y1="${y(RP.base)}" x2="${x(N)}" y2="${y(RP.base+p*N)}" stroke="${sel?'var(--blue)':'var(--line2)'}" stroke-width="${sel?2:1}" ${sel?'stroke-dasharray="6 4"':''}/>`; });
-  // x labels: first release day of each week
-  let n=0; const pts=[[0,RP.base]]; let cum=RP.base;
-  for(let d=RP.start; d<=RP.end; d=addDays(d,1)){
-    if(d<=relDataEnd()) cum+=(c.by[d]||0);
-    if(!isRelDay(d)) continue; n++;
-    if(P(d).getUTCDay()===1 || n===1) g+=`<text x="${x(n)}" y="${H-B+18}" text-anchor="middle" fill="var(--dim)" font-size="11">${fmtShort(d)}</text>`;
-    if(d<=relDataEnd()) pts.push([n,cum]);
+  const W=1000,H=360,L=56,R=24,T=24,B=46, iw=W-L-R, ih=H-T-B;
+  const dates=[]; for(let d=c.from; d<=RP.end; d=addDays(d,1)) dates.push(d);
+  const N=dates.length-1, idx=d=>dates.indexOf(d);
+  const x=d=>L+iw*idx(d)/N;
+  // actual cumulative by calendar day: history walks back from the 35,000 start
+  const histTotal=Object.values(c.hist).reduce((a,v)=>a+v,0);
+  let cum=0; const act=[];
+  for(const d of dates){ if(d>relDataEnd()) break; cum+=(d<RP.start?c.hist[d]:c.by[d])||0; act.push([d,cum]); }
+  const lo=0;
+  const hi=Math.ceil((Math.max(c.goal, RP.base+RP.paces[RP.paces.length-1]*REL_TOTAL, act.length?act[act.length-1][1]:0)+1000)/10000)*10000;
+  const y=v=>T+ih*(1-(v-lo)/(hi-lo));
+  const paceAt=(p,d)=>RP.base+p*relDays(RP.start,d);
+  const pacePts=p=>{ const out=[[addDays(RP.start,-1),RP.base]]; for(const d of dates) if(d>=RP.start) out.push([d,paceAt(p,d)]); return out; };
+  const line=pts=>pts.map(([d,v])=>`${x(d).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const xs=x(RP.start)-iw/N/2;
+  let g=`<defs>
+    <linearGradient id="rpArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#39ff14" stop-opacity=".42"/><stop offset=".6" stop-color="#39ff14" stop-opacity=".08"/><stop offset="1" stop-color="#39ff14" stop-opacity="0"/></linearGradient>
+    <linearGradient id="rpLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#00e5ff"/><stop offset="1" stop-color="#39ff14"/></linearGradient>
+    <linearGradient id="rpPace" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#7fb4ff"/><stop offset="1" stop-color="#c77dff"/></linearGradient>
+    <linearGradient id="rpPaceArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c77dff" stop-opacity=".38"/><stop offset=".55" stop-color="#7fb4ff" stop-opacity=".1"/><stop offset="1" stop-color="#7fb4ff" stop-opacity="0"/></linearGradient>
+    <linearGradient id="rpWin" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#39ff14" stop-opacity=".07"/><stop offset="1" stop-color="#39ff14" stop-opacity="0"/></linearGradient>
+    <linearGradient id="rpGoal" gradientUnits="userSpaceOnUse" x1="${L}" y1="0" x2="${W-R}" y2="0"><stop offset="0" stop-color="#f2b84b" stop-opacity=".15"/><stop offset=".5" stop-color="#f2b84b"/><stop offset="1" stop-color="#ff5d5d"/></linearGradient>
+    <filter id="rpGlow" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>`;
+  // history band + window band
+  g+=`<rect x="${L}" y="${T}" width="${xs-L}" height="${ih}" fill="#ffffff" fill-opacity=".018"/>`;
+  g+=`<rect x="${xs}" y="${T}" width="${W-R-xs}" height="${ih}" fill="url(#rpWin)"/>`;
+  g+=`<text x="${L+8}" y="${T+ih-8}" fill="var(--dim)" font-size="10" letter-spacing="1.5">HISTORY</text>`;
+  g+=`<text x="${xs+8}" y="${T+ih-8}" fill="#39ff14" fill-opacity=".7" font-size="10" letter-spacing="1.5">PACE WINDOW</text>`;
+  g+=`<line x1="${xs}" x2="${xs}" y1="${T}" y2="${T+ih}" stroke="#39ff14" stroke-opacity=".35" stroke-dasharray="2 4"/>`;
+  // grid
+  const step=(hi-lo)>60000?20000:10000;
+  for(let v=Math.ceil(lo/step)*step; v<=hi; v+=step) g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-opacity=".7"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" fill="var(--dim)" font-size="11">${v/1000}k</text>`;
+  // x labels: months bold, Mondays light
+  for(const d of dates){ const dt=P(d);
+    if(dt.getUTCDate()===1) g+=`<line x1="${x(d)}" x2="${x(d)}" y1="${T}" y2="${T+ih}" stroke="var(--line)"/><text x="${x(d)+4}" y="${H-B+32}" fill="var(--muted)" font-size="11" font-weight="700" letter-spacing="1.5">${MONS[dt.getUTCMonth()].toUpperCase()}</text>`;
+    else if(dt.getUTCDay()===1) g+=`<text x="${x(d)}" y="${H-B+16}" text-anchor="middle" fill="var(--dim)" font-size="10">${dt.getUTCDate()}</text>`;
   }
-  if(pts.length>1){
-    g+=`<polyline fill="none" stroke="var(--green)" stroke-width="2.5" points="${pts.map(([i,v])=>`${x(i)},${y(v)}`).join(' ')}"/>`;
-    const [li,lv]=pts[pts.length-1];
-    g+=`<circle cx="${x(li)}" cy="${y(lv)}" r="4" fill="var(--green)"/><text x="${x(li)+8}" y="${lv>=RP.base+c.pace*li?y(lv)-8:y(lv)+18}" fill="var(--green)" font-size="12">${fmt(lv)}</text>`;
+  // goal line
+  g+=`<line x1="${L}" x2="${W-R}" y1="${y(c.goal)}" y2="${y(c.goal)}" stroke="url(#rpGoal)" stroke-width="1.5" stroke-dasharray="6 5"/><text x="${L+6}" y="${y(c.goal)-7}" fill="#f2b84b" font-size="11">${kfmt(c.goal)} goal</text>`;
+  // other paces, faint
+  RP.paces.filter(p=>p!==c.pace).forEach(p=>{ g+=`<polyline fill="none" stroke="#c77dff" stroke-opacity=".18" stroke-width="1" points="${line(pacePts(p))}"/>`; });
+  // selected pace: soft area + gradient dashed line
+  const sp=pacePts(c.pace);
+  g+=`<polygon fill="url(#rpPaceArea)" points="${line(sp)} ${x(sp[sp.length-1][0])},${T+ih} ${x(sp[0][0])},${T+ih}"/>`;
+  g+=`<polyline fill="none" stroke="url(#rpPace)" stroke-width="2.8" stroke-linejoin="round" filter="url(#rpGlow)" points="${line(sp)}"/>`;
+  if(c.paceHit) g+=`<circle cx="${x(c.paceHit)}" cy="${y(paceAt(c.pace,c.paceHit))}" r="4.5" fill="#c77dff" filter="url(#rpGlow)"/><text x="${x(c.paceHit)-8}" y="${y(paceAt(c.pace,c.paceHit))-10}" text-anchor="end" fill="#c77dff" font-size="11">${fmtShort(c.paceHit)} ✓</text>`;
+  // actual: gradient area + glowing gradient line
+  if(act.length>1){
+    const [ld,lv]=act[act.length-1];
+    g+=`<polygon fill="url(#rpArea)" points="${line(act)} ${x(ld)},${T+ih} ${x(act[0][0])},${T+ih}"/>`;
+    g+=`<polyline fill="none" stroke="url(#rpLine)" stroke-width="2.8" stroke-linejoin="round" filter="url(#rpGlow)" points="${line(act)}"/>`;
+    g+=`<line x1="${x(ld)}" x2="${x(ld)}" y1="${T}" y2="${T+ih}" stroke="#39ff14" stroke-opacity=".25"/>`;
+    g+=`<circle cx="${x(ld)}" cy="${y(lv)}" r="9" fill="#39ff14" fill-opacity=".18"/><circle cx="${x(ld)}" cy="${y(lv)}" r="4.5" fill="#39ff14" filter="url(#rpGlow)"/>`;
+    g+=`<rect x="${x(ld)+10}" y="${y(lv)-28}" width="${fmt(lv).length*8+46}" height="20" rx="3" fill="#0b130b" stroke="#39ff14" stroke-opacity=".5"/><text x="${x(ld)+16}" y="${y(lv)-14}" fill="#39ff14" font-size="12" font-weight="700">${fmt(lv)} <tspan fill="var(--muted)" font-weight="400">today</tspan></text>`;
   }
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative releases vs pace lines">${g}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative releases Oct 1 – Dec 31 vs pace lines">${g}</svg>`;
 }
 
 function relRoute(){
@@ -1118,9 +1189,10 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-rp]');
   if(b){ LS.set('rpPace', Number(b.dataset.rp)); renderRelAll(); return; }
   const k=e.target.closest('[data-rk]');
-  if(k){ let cur=relKeys(); cur = cur.includes(k.dataset.rk) ? cur.filter(x=>x!==k.dataset.rk) : [...cur,k.dataset.rk];
-    if(!cur.length) cur=[k.dataset.rk==='customers_raw'?'slab_packs_raw':'customers_raw'];
-    LS.set('rpKeys',cur); renderRelAll(); return; }
+  if(e.target.closest('[data-rhist]')){ LS.set('rpHist',!LS.get('rpHist',true)); renderRelPage(); return; }
+  if(k){ const key=k.dataset.rk;   // toggles the same selection as the main page's checkboxes
+    S.selected.has(key) ? S.selected.delete(key) : S.selected.add(key);
+    afterSel(); return; }
 });
 $('relRefresh').addEventListener('click',()=>loadRelease(true));
 
